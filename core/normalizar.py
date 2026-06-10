@@ -61,12 +61,12 @@ def es_la_plata(texto: str) -> bool:
     return False
 
 
-def detectar_categoria(texto: str) -> str:
+def detectar_categoria(texto: str, default: str = 'teatro') -> str:
     t = _sin_acentos(texto.lower())
     for kw, slug in CATEGORIAS.items():
         if kw in t:
             return slug
-    return 'teatro'  # default razonable para agenda cultural
+    return default
 
 
 def ajustar_anio(mes: int, dia: int, hora: str = '21:00') -> str:
