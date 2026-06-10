@@ -6,7 +6,11 @@ from bs4 import BeautifulSoup
 
 from core.normalizar import evento, es_la_plata, es_futuro
 
-HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0'}
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'es-AR,es;q=0.9',
+}
 URLS = [
     'https://www.eventbrite.com.ar/d/argentina--la-plata/events/',
     'https://www.eventbrite.com.ar/d/argentina--la-plata/performances/',
@@ -14,7 +18,6 @@ URLS = [
 
 
 def _normalizar_iso(fecha_iso: str) -> str:
-    """'2026-06-14T20:00:00-03:00' → '2026-06-14 20:00:00'"""
     if not fecha_iso:
         return ''
     f = fecha_iso.replace('T', ' ')[:19]
@@ -41,7 +44,12 @@ def scrape() -> list:
                 data = json.loads(script.string or '')
             except (json.JSONDecodeError, TypeError):
                 continue
-            items = data.get('@graph', data if isinstance(data, list) else [data])
+            if isinstance(data, list):
+                items = data
+            elif isinstance(data, dict):
+                items = data.get('@graph', [data])
+            else:
+                continue
             for item in items:
                 if not isinstance(item, dict) or item.get('@type') != 'Event':
                     continue
