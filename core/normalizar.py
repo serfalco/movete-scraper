@@ -102,9 +102,8 @@ def deduplicar(eventos: list) -> list:
     vistos = set()
     resultado = []
     for ev in eventos:
-        clave = hashlib.md5(
-            (_sin_acentos(ev['titulo'].lower().strip()) + ev['fecha'][:10]).encode()
-        ).hexdigest()
+        titulo_norm = re.sub(r'[^a-z0-9]', '', _sin_acentos(ev['titulo'].lower()))
+        clave = hashlib.md5((titulo_norm + ev['fecha'][:10]).encode()).hexdigest()
         if clave not in vistos:
             vistos.add(clave)
             resultado.append(ev)
