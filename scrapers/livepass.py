@@ -1,4 +1,4 @@
-"""Livepass — Ópera, Teatro Argentino, Hipódromo, CCNU, Club RE, Atenas LP."""
+"""Livepass — Ópera, Teatro Argentino, Hipódromo, Atenas LP."""
 import re
 
 import requests
@@ -10,8 +10,6 @@ VENUES = {
     'opera': ('Teatro Ópera La Plata', 'Calle 58 entre 10 y 11, La Plata'),
     'teatro-argentino': ('Teatro Argentino La Plata', 'Av. 51 entre 9 y 10, La Plata'),
     'hipodromo-la-plata': ('Hipódromo de La Plata', 'Av. 44 y 115, La Plata'),
-    'centro-cultural-nueva-uriarte': ('CCNU', 'La Plata'),
-    'club-re': ('Club RE La Plata', 'La Plata'),
 }
 
 MES_ABREV = {'ENE': 1, 'FEB': 2, 'MAR': 3, 'ABR': 4, 'MAY': 5, 'JUN': 6,
@@ -60,7 +58,6 @@ def _parsear_pagina(html: str, venue_nombre: str, venue_dir: str) -> list:
         fecha = ajustar_anio(MES_ABREV[m.group(2).upper()], int(m.group(1)))
         if not es_futuro(fecha):
             continue
-        # Venues de Livepass = recitales: default música
         categoria = detectar_categoria(titulo, default='musica')
         eventos.append(evento(titulo, fecha, venue_nombre, categoria=categoria,
                               direccion=venue_dir, fuente='livepass'))
