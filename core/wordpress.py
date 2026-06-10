@@ -61,7 +61,6 @@ def _venue_id(nombre: str, direccion: str):
                 if v.get('venue', '').lower() == nombre.lower():
                     _venue_cache[nombre] = v['id']
                     return v['id']
-        # Crear venue nuevo
         r = requests.post(TEC_VENUES, auth=AUTH, headers=HEADERS, timeout=20, json={
             'venue': nombre,
             'address': direccion,
@@ -105,7 +104,7 @@ def crear_evento(ev: dict, dry_run: bool = False) -> bool:
     cat_id = _categoria_id(ev['categoria'])
     venue_id = _venue_id(ev['lugar'], ev.get('direccion', ''))
 
- payload = {
+    payload = {
         'title': ev['titulo'],
         'start_date': ev['fecha'],
         'end_date': fin.strftime('%Y-%m-%d %H:%M:%S'),
