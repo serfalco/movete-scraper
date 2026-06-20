@@ -1,3 +1,4 @@
+
 """MoVeTe Scraper — orquestador principal.
 
 Junta eventos de todas las fuentes, normaliza, deduplica,
@@ -10,7 +11,7 @@ from datetime import date
 from core.normalizar import deduplicar, es_futuro
 from core import wordpress
 
-from scrapers import livepass, teatro_metro, coliseo, opera, eventbrite, eldia, _0221, genda
+from scrapers import livepass, teatro_metro, coliseo, opera, eventbrite, eldia, _0221, genda, alternativa
 
 DRY_RUN = os.environ.get('DRY_RUN', 'false').lower() == 'true'
 
@@ -27,7 +28,7 @@ def main() -> int:
 
     print('\n--- Scrapeando fuentes ---')
     todos = []
-    fuentes = [genda, livepass, teatro_metro, coliseo, opera, eventbrite]
+    fuentes = [genda, livepass, alternativa, teatro_metro, coliseo, opera, eventbrite]
     if es_viernes:
         fuentes += [eldia, _0221]
 
