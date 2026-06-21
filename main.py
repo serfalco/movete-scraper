@@ -1,28 +1,30 @@
-
 """MoVeTe Scraper — orquestador principal.
 
-Junta eventos de todas las fuentes, normaliza, deduplica,
-filtra futuros y los sube a WordPress (The Events Calendar).
+Junta eventos de todas las fuentes, normaliza, deduplica, filtra futuros
+y escribe un archivo estático `eventos.json` que consume movete-espectaculos.
+
+Modelo estático: NO sube a WordPress. El JSON es la única salida.
 """
+import json
 import os
 import sys
-from datetime import date
+from collections import Counter
+from datetime import date, datetime
 
 from core.normalizar import deduplicar, es_futuro
-from core import wordpress
 
-from scrapers import livepass, teatro_metro, coliseo, opera, eventbrite, eldia, _0221, genda, alternativa
+from scrapers import (
+    livepass, teatro_metro, coliseo, opera,
+    eventbrite, eldia, _0221, genda, alternativa,
+)
 
-DRY_RUN = os.environ.get('DRY_RUN', 'false').lower() == 'true'
+# Dónde se escribe el JSON. Configurable por env para CI/CD.
+SALIDA = os.environ.get('SALIDA_JSON', 'eventos.json')
 
 
 def main() -> int:
     print('======= MoVeTe Scraper =======')
-    print(f"Fecha: {date.today().isoformat()} | Modo: {'DRY RUN' if DRY_RUN else 'PRODUCCIÓN'}")
-
-    if not DRY_RUN and not wordpress.verificar_conexion():
-        print('Abortando: sin conexión a WordPress.')
-        return 1
+    print(f'Fecha: {date.today().isoformat()}')
 
     es_viernes = date.today().weekday() == 4
 
@@ -32,31 +34,40 @@ def main() -> int:
     if es_viernes:
         fuentes += [eldia, _0221]
 
+    conteo_fuente = {}
     for fuente in fuentes:
         try:
-            todos.extend(fuente.scrape())
+            res = fuente.scrape()
+            todos.extend(res)
+            conteo_fuente[fuente.__name__.split('.')[-1]] = len(res)
         except Exception as e:  # noqa: BLE001 — una fuente caída no frena el resto
             print(f'  ⚠️ {fuente.__name__}: falló — {e}')
+            conteo_fuente[fuente.__name__.split('.')[-1]] = 0
 
     print(f'\nTotal bruto: {len(todos)}')
+
+    # Filtrar futuros, deduplicar, ordenar por fecha ascendente
     eventos = deduplicar([e for e in todos if es_futuro(e.get('fecha', ''))])
+    eventos = [e for e in eventos if e.get('titulo') and e.get('fecha')]
+    eventos.sort(key=lambda e: e['fecha'])
     print(f'Futuros y únicos: {len(eventos)}')
 
-    print('\n--- Subiendo a WordPress ---')
-    nuevos = dupes = errores = 0
-    for ev in eventos:
-        if not ev['titulo'] or not ev['fecha']:
-            continue
-        if not DRY_RUN and wordpress.ya_existe(ev):
-            dupes += 1
-            continue
-        if wordpress.crear_evento(ev, dry_run=DRY_RUN):
-            nuevos += 1
-        else:
-            errores += 1
+    # Estructura de salida: metadata + eventos
+    salida = {
+        'generado': datetime.now().isoformat(timespec='seconds'),
+        'total': len(eventos),
+        'por_fuente': conteo_fuente,
+        'por_categoria': dict(Counter(e['categoria'] for e in eventos)),
+        'eventos': eventos,
+    }
+
+    with open(SALIDA, 'w', encoding='utf-8') as f:
+        json.dump(salida, f, ensure_ascii=False, indent=2)
 
     print('\n======= RESULTADO =======')
-    print(f'Nuevos: {nuevos} | Duplicados: {dupes} | Errores: {errores}')
+    print(f'Escrito: {SALIDA} ({len(eventos)} eventos)')
+    print(f'Por fuente: {conteo_fuente}')
+    print(f'Por categoría: {salida["por_categoria"]}')
     return 0
 
 

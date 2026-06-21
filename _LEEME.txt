@@ -1,0 +1,5 @@
+SOBREESCRIBIR EN EL REPO movete-scraper:
+  main.py                       -> raíz (ya NO sube a WordPress, escribe eventos.json)
+  scrapers/alternativa.py       -> nuevo scraper de teatro alternativo (NUEVO archivo)
+
+Para correr:  python3 main.py   (genera eventos.json)
