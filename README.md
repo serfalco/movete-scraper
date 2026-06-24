@@ -1,43 +1,36 @@
-# movete-scraper
+# MoVeTe Scraper
 
-Scraper de eventos para MoVeTe.
+Scraper automático de eventos culturales del Gran La Plata para [movete.info](https://movete.info).
 
-## Rol del repo
+## Cómo funciona
 
-Este repo obtiene, normaliza, deduplica y filtra eventos futuros.
+- Corre por GitHub Actions o manualmente.
+- Cada archivo en `scrapers/` cubre una fuente.
+- `main.py` junta todo, deduplica, filtra eventos futuros y escribe `eventos.json`.
+- No publica en WordPress.
+- No usa FTP.
 
-La salida oficial es:
+## Salida
 
-```bash
+Archivo principal:
+
+```txt
 eventos.json
 ```
 
-## Importante
+También se puede configurar por variable de entorno:
 
-Este repo ya no publica en WordPress.
+```txt
+SALIDA_JSON=../Movete-info/data/eventos.json
+```
 
-No usa:
-
-- WordPress
-- FTP
-- Hostinger
-- PHP
-
-## Uso local
+## Correr local
 
 ```bash
 pip install -r requirements.txt
-python main.py --output eventos.json
+python main.py
 ```
 
-Dry run:
+## Secrets requeridos
 
-```bash
-python main.py --dry-run
-```
-
-## Uso en GitHub Actions
-
-El workflow corre los jueves y deja `eventos.json` como artefacto.
-
-El workflow final del proyecto vive en `Movete-info`, que es el repo publicado por Cloudflare Pages.
+Ninguno por ahora.
