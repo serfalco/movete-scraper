@@ -92,6 +92,7 @@ def _parsear_dia(html: str, fecha_dia: date) -> list:
 def scrape() -> list:
     eventos = []
     hoy = date.today()
+    fallos_consecutivos = 0
     for offset in range(DIAS_A_SCRAPEAR):
         dia = hoy + timedelta(days=offset)
         try:
@@ -100,9 +101,14 @@ def scrape() -> list:
             if r.status_code != 200:
                 print(f'  genda/{dia}: HTTP {r.status_code}')
                 continue
+            fallos_consecutivos = 0
             eventos.extend(_parsear_dia(r.text, dia))
         except requests.RequestException as e:
             print(f'  genda/{dia}: error {e}')
+            fallos_consecutivos += 1
+            if fallos_consecutivos >= 2:
+                print('  genda: fuente inaccesible; se corta el intento diario')
+                break
         time.sleep(0.5)
     print(f'  genda: {len(eventos)} eventos en {DIAS_A_SCRAPEAR} días')
     return eventos
