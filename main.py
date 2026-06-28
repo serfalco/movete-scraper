@@ -33,6 +33,33 @@ from scrapers import (
 
 # Dónde se escribe el JSON. Configurable por env para CI/CD.
 SALIDA = os.environ.get("SALIDA_JSON", "eventos.json")
+CACHE_DIR = os.environ.get("MOVETE_CACHE_DIR", "")
+
+
+def _cache_fuente(nombre: str) -> str:
+    return os.path.join(CACHE_DIR, f"{nombre}.json")
+
+
+def _cargar_cache(nombre: str) -> list[dict]:
+    if not CACHE_DIR:
+        return []
+    try:
+        with open(_cache_fuente(nombre), encoding="utf-8") as f:
+            data = json.load(f)
+        return [ev for ev in data if isinstance(ev, dict) and es_futuro(ev.get("fecha", ""))]
+    except (OSError, json.JSONDecodeError, TypeError):
+        return []
+
+
+def _guardar_cache(nombre: str, eventos: list[dict]) -> None:
+    if not CACHE_DIR or not eventos:
+        return
+    try:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(_cache_fuente(nombre), "w", encoding="utf-8") as f:
+            json.dump(eventos, f, ensure_ascii=False, indent=2)
+    except OSError as e:
+        print(f" ⚠️ {nombre}: no se pudo guardar respaldo — {e}")
 
 
 def main() -> int:
@@ -68,12 +95,23 @@ def main() -> int:
             if not isinstance(res, list):
                 print(f" ⚠️ {nombre}: devolvió {type(res).__name__}, se ignora")
                 res = []
+            if res:
+                _guardar_cache(nombre, res)
+            else:
+                respaldo = _cargar_cache(nombre)
+                if respaldo:
+                    res = respaldo
+                    print(f" ↩️ {nombre}: se usan {len(res)} eventos del último respaldo válido")
             todos.extend(res)
             conteo_fuente[nombre] = len(res)
             print(f" ✅ {nombre}: {len(res)} eventos")
         except Exception as e:  # noqa: BLE001
             print(f" ⚠️ {nombre}: falló — {e}")
-            conteo_fuente[nombre] = 0
+            res = _cargar_cache(nombre)
+            if res:
+                print(f" ↩️ {nombre}: se usan {len(res)} eventos del último respaldo válido")
+                todos.extend(res)
+            conteo_fuente[nombre] = len(res)
 
     print(f"\nTotal bruto: {len(todos)}")
 
