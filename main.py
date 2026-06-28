@@ -59,7 +59,7 @@ def _guardar_cache(nombre: str, eventos: list[dict]) -> None:
         with open(_cache_fuente(nombre), "w", encoding="utf-8") as f:
             json.dump(eventos, f, ensure_ascii=False, indent=2)
     except OSError as e:
-        print(f" ⚠️ {nombre}: no se pudo guardar respaldo — {e}")
+        print(f" [AVISO] {nombre}: no se pudo guardar respaldo - {e}")
 
 
 def main() -> int:
@@ -93,7 +93,7 @@ def main() -> int:
         try:
             res = fuente.scrape()
             if not isinstance(res, list):
-                print(f" ⚠️ {nombre}: devolvió {type(res).__name__}, se ignora")
+                print(f" [AVISO] {nombre}: devolvió {type(res).__name__}, se ignora")
                 res = []
             if res:
                 _guardar_cache(nombre, res)
@@ -101,15 +101,15 @@ def main() -> int:
                 respaldo = _cargar_cache(nombre)
                 if respaldo:
                     res = respaldo
-                    print(f" ↩️ {nombre}: se usan {len(res)} eventos del último respaldo válido")
+                    print(f" [CACHE] {nombre}: se usan {len(res)} eventos del último respaldo válido")
             todos.extend(res)
             conteo_fuente[nombre] = len(res)
-            print(f" ✅ {nombre}: {len(res)} eventos")
+            print(f" [OK] {nombre}: {len(res)} eventos")
         except Exception as e:  # noqa: BLE001
-            print(f" ⚠️ {nombre}: falló — {e}")
+            print(f" [AVISO] {nombre}: falló - {e}")
             res = _cargar_cache(nombre)
             if res:
-                print(f" ↩️ {nombre}: se usan {len(res)} eventos del último respaldo válido")
+                print(f" [CACHE] {nombre}: se usan {len(res)} eventos del último respaldo válido")
                 todos.extend(res)
             conteo_fuente[nombre] = len(res)
 

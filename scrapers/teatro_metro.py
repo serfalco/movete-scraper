@@ -4,7 +4,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 
-from core.normalizar import evento, es_futuro
+from core.normalizar import detectar_categoria, evento, es_futuro
 
 HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0'}
 PAGINAS = [
@@ -42,6 +42,7 @@ def scrape() -> list:
                 continue
             eventos.append(evento(
                 titulo, fecha, 'Teatro Metro La Plata',
+                categoria=detectar_categoria(titulo, default='teatro'),
                 direccion='Calle 4 entre 51 y 53, La Plata', fuente='teatro-metro'))
     print(f'  teatro-metro: {len(eventos)} eventos')
     return eventos

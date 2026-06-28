@@ -9,7 +9,7 @@ from datetime import date, timedelta
 import requests
 from bs4 import BeautifulSoup
 
-from core.normalizar import evento
+from core.normalizar import detectar_categoria, evento
 
 HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0'}
 BASE = 'https://agendalaplata.ar/genda/'
@@ -18,22 +18,6 @@ DIAS_A_SCRAPEAR = 14
 PATRON_EVENTO = re.compile(r'(\d{1,2}):(\d{2})\s*hs\s*\|[ \t]*([^\n]{0,100})')
 PATRON_HORA = re.compile(r'^\d{1,2}:\d{2}\s*hs')
 
-PRIORIDAD_CATS = [
-    ('stand up', 'stand-up'), ('standup', 'stand-up'), ('humor', 'stand-up'),
-    ('impro', 'impro'),
-    ('danza', 'danza'),
-    ('infantil', 'infantil'), ('títeres', 'infantil'), ('titeres', 'infantil'),
-    ('cine', 'cine'),
-    ('exposicion', 'a-plasticas'), ('exposición', 'a-plasticas'),
-    ('muestra', 'a-plasticas'), ('feria', 'a-plasticas'),
-    ('taller', 'taller'),
-    ('musica', 'musica'), ('música', 'musica'), ('en vivo', 'musica'),
-    ('peña', 'musica'), ('pena', 'musica'),
-    ('teatro', 'teatro'),
-]
-
-CATS_EXCLUIDAS = ('museo', 'visita', 'recreativo')
-
 # Solo elementos de interfaz (NO nombres de categorías de eventos)
 PALABRAS_UI = {'cartelera', 'cómo llegar', 'como llegar', 'alerta',
                'invitalo/a', '¿con quién irías?', 'con quien irias',
@@ -41,17 +25,56 @@ PALABRAS_UI = {'cartelera', 'cómo llegar', 'como llegar', 'alerta',
                '▼', '‹', '›', '06h', '12h', '18h', '24h'}
 
 
-def _mapear_categoria(cat_genda: str, titulo: str) -> str:
-    texto = f'{cat_genda} {titulo}'.lower()
-    for kw, slug in PRIORIDAD_CATS:
-        if kw in texto:
-            return slug
-    return 'teatro'
+def _mapear_categoria(cat_genda: str, titulo: str, venue: str = '') -> str:
+    categoria = detectar_categoria(f'{cat_genda} {titulo}', default='otros')
+    if categoria != 'otros':
+        return categoria
+    return detectar_categoria(venue, default='otros')
+
+
+def _parsear_tarjetas(soup: BeautifulSoup, fecha_dia: date) -> list:
+    eventos = []
+    for card in soup.select('.card.card-custom'):
+        link_datos = card.select_one('[data-title][data-sitio]')
+        if not link_datos:
+            continue
+
+        titulo = (link_datos.get('data-title') or '').strip()
+        venue = (link_datos.get('data-sitio') or '').strip()
+        texto_card = card.get_text(' ', strip=True)
+        hora_match = re.search(r'\b(\d{1,2}):(\d{2})\s*hs\b', texto_card)
+        if not titulo or not hora_match:
+            continue
+
+        hora = f'{int(hora_match.group(1)):02d}:{hora_match.group(2)}'
+        etiquetas = ' '.join(
+            badge.get_text(' ', strip=True)
+            for badge in card.select('.evento-tabs .badge')
+        )
+        url_match = re.search(
+            r'https://agendalaplata\.ar/evento/[^\'"\s]+',
+            str(card),
+        )
+
+        eventos.append(evento(
+            titulo,
+            f'{fecha_dia.isoformat()} {hora}:00',
+            venue or 'La Plata',
+            categoria=_mapear_categoria(etiquetas, titulo, venue),
+            url=url_match.group(0) if url_match else '',
+            fuente='genda',
+        ))
+    return eventos
 
 
 def _parsear_dia(html: str, fecha_dia: date) -> list:
     eventos = []
     soup = BeautifulSoup(html, 'html.parser')
+    eventos = _parsear_tarjetas(soup, fecha_dia)
+    if eventos:
+        return eventos
+
+    # Respaldo para una version antigua o simplificada del HTML de la fuente.
     texto = soup.get_text('\n')
     texto = re.sub(r'(\d{1,2}:\d{2}\s*hs)\s*\|\s*', r'\1 | ', texto)
 
@@ -77,14 +100,10 @@ def _parsear_dia(html: str, fecha_dia: date) -> list:
             continue
         if '????' in titulo:
             continue
-        cat_lower = cat_genda.lower()
-        if any(x in cat_lower for x in CATS_EXCLUIDAS):
-            continue
-
         eventos.append(evento(
             titulo, f'{fecha_dia.isoformat()} {hora}:00',
             venue or 'La Plata',
-            categoria=_mapear_categoria(cat_genda, titulo),
+            categoria=_mapear_categoria(cat_genda, titulo, venue),
             fuente='genda'))
     return eventos
 

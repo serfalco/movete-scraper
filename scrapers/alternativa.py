@@ -13,7 +13,7 @@ from datetime import date
 
 import requests
 
-from core.normalizar import evento
+from core.normalizar import detectar_categoria, evento
 
 ENDPOINT = 'https://www.alternativateatral.com/get-json.php'
 HEADERS = {
@@ -95,7 +95,7 @@ def scrape() -> list:
                 titulo,
                 fecha_norm,
                 sala or 'La Plata',
-                categoria='teatro',
+                categoria=detectar_categoria(titulo, default='teatro'),
                 direccion=direccion,
                 url=url_entradas,
                 fuente='alternativa',

@@ -25,21 +25,34 @@ MESES = {
     'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12,
 }
 
-CATEGORIAS = {
-    'stand up': 'stand-up', 'standup': 'stand-up', 'stand-up': 'stand-up',
-    'comedia': 'stand-up', 'humor': 'stand-up',
-    'teatro': 'teatro', 'obra': 'teatro', 'dramaturg': 'teatro',
-    'impro': 'impro', 'improvisac': 'impro',
-    'danza': 'danza', 'ballet': 'danza', 'folklore': 'danza',
-    'musica': 'musica', 'recital': 'musica', 'concierto': 'musica',
-    'jazz': 'musica', 'tango': 'musica', 'rock': 'musica', 'cumbia': 'musica',
-    'orquesta': 'musica', 'banda': 'musica', 'show': 'musica',
-    'cine': 'cine', 'film': 'cine', 'pelicula': 'cine',
-    'infantil': 'infantil', 'ninos': 'infantil', 'familiar': 'infantil', 'titeres': 'infantil',
-    'taller': 'taller', 'workshop': 'taller', 'curso': 'taller', 'seminario': 'taller',
-    'expo': 'a-plasticas', 'muestra': 'a-plasticas', 'pintura': 'a-plasticas',
-    'fotografia': 'a-plasticas', 'escultura': 'a-plasticas',
-}
+# El orden importa: primero van las categorias mas especificas. Las expresiones
+# usan limites de palabra para evitar coincidencias accidentales dentro de nombres.
+REGLAS_CATEGORIA = [
+    ('stand-up', (r'\bstand[ -]?up\b', r'\bopen mic\b')),
+    ('impro', (r'\bimpro(?:visacion)?\b', r'\bmatch\b.*\bteatro deporte\b')),
+    ('taller', (r'\btaller(?:es)?\b', r'\bworkshop\b', r'\bcurso\b',
+                r'\bseminario\b', r'\bclinica\b', r'\bcapacitacion\b')),
+    ('infantil', (r'\binfantil(?:es)?\b', r'\binfancias?\b', r'\bninos?\b',
+                  r'\bbajitos\b', r'\btiteres\b')),
+    ('danza', (r'\bdanza\b', r'\bballet\b', r'\bcoreograf')),
+    ('a-plasticas', (r'\bexposicion\b', r'\bexpo\b', r'\bmuestra\b',
+                     r'\bpintura\b', r'\bfotografia\b', r'\bescultura\b',
+                     r'\bdibujo\b', r'\bmosaiquismo\b', r'\bartes? visual')),
+    ('actividades', (r'\bactividad(?:es)?\b', r'\brecreativ', r'\bjuegos?\b',
+                     r'\btorneo\b', r'\bcharla\b', r'\bconversatorio\b', r'\bconferencia\b',
+                     r'\bobservacion astronomica\b', r'\bastronomia\b',
+                     r'\bplanetario\b', r'\bvisita guiada\b', r'\bencuentro\b',
+                     r'\bferia\b', r'\bjornada\b', r'\bciencia\b',
+                     r'\bajedrec', r'\bcafe literario\b', r'comic',
+                     r'\bpresentacion\b')),
+    ('cine', (r'\bcine\b', r'\bfilm\b', r'\bpelicula\b', r'\bpantalla grande\b')),
+    ('musica', (r'\bmusica\b', r'\brecital\b', r'\bconcierto\b', r'\bjazz\b',
+                r'\btango\b', r'\brock\b', r'\bcumbia\b', r'\borquesta\b',
+                r'\bbanda\b', r'\bacustic', r'\bpena\b')),
+    ('humor', (r'\bhumor\b', r'\bhumorista\b')),
+    ('teatro', (r'\bteatro\b', r'\bobra\b', r'\bdramaturg', r'\bclown',
+                r'\bunipersonal\b', r'\bcomedia\b')),
+]
 
 
 def _sin_acentos(texto: str) -> str:
@@ -61,10 +74,10 @@ def es_la_plata(texto: str) -> bool:
     return False
 
 
-def detectar_categoria(texto: str, default: str = 'teatro') -> str:
+def detectar_categoria(texto: str, default: str = 'otros') -> str:
     t = _sin_acentos(texto.lower())
-    for kw, slug in CATEGORIAS.items():
-        if kw in t:
+    for slug, patrones in REGLAS_CATEGORIA:
+        if any(re.search(patron, t) for patron in patrones):
             return slug
     return default
 
