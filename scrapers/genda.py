@@ -29,6 +29,8 @@ def _mapear_categoria(cat_genda: str, titulo: str, venue: str = '') -> str:
     categoria = detectar_categoria(f'{cat_genda} {titulo}', default='otros')
     if categoria != 'otros':
         return categoria
+    if 'actividad' in cat_genda.lower():
+        return 'otros'
     return detectar_categoria(venue, default='otros')
 
 
