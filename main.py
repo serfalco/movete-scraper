@@ -66,7 +66,12 @@ def main() -> int:
     print("======= MoVeTe Scraper =======")
     print(f"Fecha: {date.today().isoformat()}")
 
-    es_viernes = date.today().weekday() == 4
+    # El Dia y 0221 solo publican los viernes. Corren si es viernes o si el
+    # workflow lo fuerza con FORZAR_PERIODISTICAS=1 (util para pruebas manuales).
+    correr_periodisticas = (
+        date.today().weekday() == 4
+        or os.environ.get("FORZAR_PERIODISTICAS") == "1"
+    )
     print("\n--- Scrapeando fuentes ---")
 
     todos: list[dict] = []
@@ -83,7 +88,7 @@ def main() -> int:
     ]
 
     # Fuentes más periodísticas: se pueden correr menos seguido.
-    if es_viernes:
+    if correr_periodisticas:
         fuentes += [eldia, _0221]
 
     conteo_fuente: dict[str, int] = {}
