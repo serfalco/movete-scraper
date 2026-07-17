@@ -8,9 +8,9 @@ from scrapers.genda import _mapear_categoria, _parsear_dia
 class DetectarCategoriaTests(unittest.TestCase):
     def test_casos_reales_que_no_son_teatro(self):
         casos = {
-            "Observación astronómica": "actividades",
-            "Encuentro ajedrecístico": "actividades",
-            "Actividad recreativa - Torneo de rompecabezas": "actividades",
+            "Observación astronómica": "otros",
+            "Encuentro ajedrecístico": "otros",
+            "Actividad recreativa - Torneo de rompecabezas": "otros",
             "Curso de magia": "taller",
             "Sociedad Platense de Stand Up": "stand-up",
             "Muestra del taller del match de improvisación": "impro",
@@ -35,7 +35,7 @@ class DetectarCategoriaTests(unittest.TestCase):
         self.assertEqual(_mapear_categoria("Teatro", "La Nona"), "teatro")
         self.assertEqual(
             _mapear_categoria("Actividades", "Observación astronómica", "Planetario"),
-            "actividades",
+            "otros",
         )
         self.assertEqual(_mapear_categoria("", "Centro de Arte UNLP"), "otros")
         self.assertEqual(_mapear_categoria("", "Un solo latido", "Cine Select"), "cine")
