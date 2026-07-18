@@ -151,6 +151,13 @@ def main() -> int:
     print(f"Por fuente: {conteo_fuente}")
     print(f'Por categoría: {salida["por_categoria"]}')
 
+    # Salud de fuentes: una fuente en 0 (ni siquiera respaldo) suele significar
+    # que el sitio cambió y el scraper quedó roto. Se avisa fuerte para no
+    # perder una fuente entera en silencio. En GitHub Actions sale como warning.
+    fuentes_vacias = [n for n, c in conteo_fuente.items() if c == 0]
+    if fuentes_vacias:
+        print(f"::warning::Fuentes sin eventos (revisar scraper): {', '.join(fuentes_vacias)}")
+
     return 0
 
 
