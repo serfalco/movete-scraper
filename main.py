@@ -32,6 +32,7 @@ from scrapers import (
     comunidad,
     plateauno,
     passline,
+    teatrobar,
 )
 
 # Dónde se escribe el JSON. Configurable por env para CI/CD.
@@ -90,6 +91,7 @@ def main() -> int:
         eventbrite,
         plateauno,
         passline,
+        teatrobar,
     ]
 
     # Eventos cargados por la comunidad: solo si hay planilla configurada.
