@@ -14,7 +14,8 @@ from core.normalizar import detectar_categoria, es_futuro, evento
 HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0'}
 URL = 'https://operalp.com.ar/agenda/'
 DIRECCION = 'Calle 58 entre 10 y 11, La Plata'
-RE_FECHA = re.compile(r'(\d{2})/(\d{2})/(\d{4})')
+# Las fechas vienen con día y mes de 1 o 2 dígitos (21/11/2026 pero también 1/8/2026).
+RE_FECHA = re.compile(r'(\d{1,2})/(\d{1,2})/(\d{4})')
 
 
 def scrape() -> list:
@@ -40,7 +41,7 @@ def scrape() -> list:
         m = RE_FECHA.search(item.get_text(' '))
         if not m:
             continue
-        fecha = f'{m.group(3)}-{m.group(2)}-{m.group(1)} 21:00:00'
+        fecha = f'{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d} 21:00:00'
         if not es_futuro(fecha):
             continue
 
