@@ -29,6 +29,7 @@ from scrapers import (
     _0221,
     genda,
     alternativa,
+    comunidad,
 )
 
 # Dónde se escribe el JSON. Configurable por env para CI/CD.
@@ -86,6 +87,10 @@ def main() -> int:
         opera,
         eventbrite,
     ]
+
+    # Eventos cargados por la comunidad: solo si hay planilla configurada.
+    if os.environ.get("MOVETE_EVENTOS_CSV", "").strip():
+        fuentes.append(comunidad)
 
     # Fuentes más periodísticas: se pueden correr menos seguido.
     if correr_periodisticas:
