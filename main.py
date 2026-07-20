@@ -30,6 +30,7 @@ from scrapers import (
     genda,
     alternativa,
     comunidad,
+    plateauno,
 )
 
 # Dónde se escribe el JSON. Configurable por env para CI/CD.
@@ -86,6 +87,7 @@ def main() -> int:
         coliseo,
         opera,
         eventbrite,
+        plateauno,
     ]
 
     # Eventos cargados por la comunidad: solo si hay planilla configurada.
