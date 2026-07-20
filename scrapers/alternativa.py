@@ -60,6 +60,9 @@ def scrape() -> list:
         if url_ficha:
             url_ficha = 'https://www.alternativateatral.com.ar/' + url_ficha
         url_entradas = esp.get('url_entradas', '') or url_ficha
+        imagen = (esp.get('imagen_ficha') or '').strip()
+        if imagen and not imagen.startswith('http'):
+            imagen = 'https://' + imagen
 
         for lugar in esp.get('lugares', {}).values():
             if lugar.get('zona', '').strip().lower() not in ZONAS_LP:
@@ -99,6 +102,7 @@ def scrape() -> list:
                 direccion=direccion,
                 url=url_entradas,
                 fuente='alternativa',
+                imagen=imagen,
             ))
 
     print(f'  alternativa: {len(eventos)} eventos')

@@ -66,6 +66,7 @@ COLUMNAS = {
     "direccion": ("direccion", "domicilio", "calle", "barrio", "localidad"),
     "categoria": ("categoria", "rubro", "tipo", "disciplina"),
     "url": ("url", "link", "enlace", "entradas", "mas info", "web", "instagram"),
+    "imagen": ("imagen", "foto", "afiche", "flyer", "imagen del evento"),
     # Campo trampa para bots: si viene con algo, se descarta la fila.
     "honeypot": ("no_completar", "nocompletar", "website", "sitio web"),
 }
@@ -217,6 +218,10 @@ def _parsear(texto_csv: str) -> list:
         if url and not url.startswith("http"):
             url = "https://" + url
 
+        imagen = val(fila, "imagen")
+        if imagen and not imagen.startswith("http"):
+            imagen = "https://" + imagen
+
         eventos.append(evento(
             titulo,
             fecha,
@@ -225,6 +230,7 @@ def _parsear(texto_csv: str) -> list:
             direccion=direccion,
             url=url,
             fuente="comunidad",
+            imagen=imagen,
         ))
         if len(eventos) >= MAX_EVENTOS:
             break

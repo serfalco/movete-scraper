@@ -5,6 +5,7 @@ Se recorre día por día (?fecha=YYYY-MM-DD) los próximos 14 días.
 import re
 import time
 from datetime import date, timedelta
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -32,6 +33,18 @@ def _mapear_categoria(cat_genda: str, titulo: str, venue: str = '') -> str:
     if 'actividad' in cat_genda.lower():
         return 'otros'
     return detectar_categoria(venue, default='otros')
+
+
+def _imagen_card(card) -> str:
+    """La miniatura viene como background-image en un estilo inline; se pasa a
+    URL absoluta (../_fotos/x.jpg -> https://agendalaplata.ar/_fotos/x.jpg)."""
+    el = card.select_one('[style*="background-image"]')
+    if not el:
+        return ''
+    m = re.search(r"url\(['\"]?([^'\")]+)['\"]?\)", el.get('style', ''))
+    if not m:
+        return ''
+    return urljoin(BASE, m.group(1).strip())
 
 
 def _parsear_tarjetas(soup: BeautifulSoup, fecha_dia: date) -> list:
@@ -65,6 +78,7 @@ def _parsear_tarjetas(soup: BeautifulSoup, fecha_dia: date) -> list:
             categoria=_mapear_categoria(etiquetas, titulo, venue),
             url=url_match.group(0) if url_match else '',
             fuente='genda',
+            imagen=_imagen_card(card),
         ))
     return eventos
 

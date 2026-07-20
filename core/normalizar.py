@@ -105,19 +105,28 @@ def limpiar_titulo(titulo: str) -> str:
 
 
 def deduplicar(eventos: list) -> list:
-    vistos = set()
+    vistos = {}
     resultado = []
     for ev in eventos:
         titulo_norm = re.sub(r'[^a-z0-9]', '', _sin_acentos(ev['titulo'].lower()))
         clave = hashlib.md5((titulo_norm + ev['fecha'][:10]).encode()).hexdigest()
         if clave not in vistos:
-            vistos.add(clave)
+            vistos[clave] = ev
             resultado.append(ev)
+        else:
+            # Un duplicado puede traer datos que al primero le faltan
+            # (típico: imagen o link). Se completan sin duplicar el evento.
+            base = vistos[clave]
+            if not base.get('imagen') and ev.get('imagen'):
+                base['imagen'] = ev['imagen']
+            if not base.get('url') and ev.get('url'):
+                base['url'] = ev['url']
     return resultado
 
 
 def evento(titulo: str, fecha: str, lugar: str, categoria: str = '',
-           direccion: str = '', url: str = '', fuente: str = '') -> dict:
+           direccion: str = '', url: str = '', fuente: str = '',
+           imagen: str = '') -> dict:
     """Constructor estándar de evento."""
     titulo = limpiar_titulo(titulo)
     return {
@@ -128,4 +137,5 @@ def evento(titulo: str, fecha: str, lugar: str, categoria: str = '',
         'categoria': categoria or detectar_categoria(titulo),
         'url': url,
         'fuente': fuente,
+        'imagen': imagen.strip(),
     }
