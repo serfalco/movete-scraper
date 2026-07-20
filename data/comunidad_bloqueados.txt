@@ -1,0 +1,6 @@
+# Lista negra de eventos de la comunidad.
+# Un término por línea (sin distinguir mayúsculas ni acentos).
+# Si el título o el lugar de un evento contiene alguno de estos términos,
+# ese evento NO se publica. Sirve para sacar algo puntual que se haya colado:
+# agregás la línea y en el próximo build desaparece.
+# Las líneas que empiezan con # son comentarios y se ignoran.

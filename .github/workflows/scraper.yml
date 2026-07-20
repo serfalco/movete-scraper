@@ -24,6 +24,12 @@ jobs:
 
       - name: Correr scraper
         run: python main.py
+        env:
+          # URL del CSV publicado de la planilla de eventos de la comunidad.
+          # Es una URL pública (no un secreto): se configura como Variable del
+          # repo (Settings > Secrets and variables > Actions > Variables).
+          # Si está vacía, la fuente "comunidad" simplemente no corre.
+          MOVETE_EVENTOS_CSV: ${{ vars.MOVETE_EVENTOS_CSV }}
 
       - name: Subir eventos.json como artifact
         uses: actions/upload-artifact@v4
