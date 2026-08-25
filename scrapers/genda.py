@@ -1,6 +1,11 @@
 """GENDA (agendalaplata.ar) — agenda cultural completa de La Plata.
 
 Se recorre día por día (?fecha=YYYY-MM-DD) los próximos 14 días.
+
+OJO con la URL: la agenda vivía en /genda/ y desde agosto de 2026 ese path
+devuelve un 301 a la raíz. El redirect se come el ?fecha= (termina pidiendo
+/%3Ffecha=...) y responde 200 con una página vacía, así que el scraper devolvía
+cero sin ningún error visible. La agenda por día ahora se sirve desde la raíz.
 """
 import re
 import time
@@ -13,7 +18,7 @@ from bs4 import BeautifulSoup
 from core.normalizar import detectar_categoria, evento
 
 HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0'}
-BASE = 'https://agendalaplata.ar/genda/'
+BASE = 'https://agendalaplata.ar/'
 DIAS_A_SCRAPEAR = 14
 
 PATRON_EVENTO = re.compile(r'(\d{1,2}):(\d{2})\s*hs\s*\|[ \t]*([^\n]{0,100})')
@@ -145,5 +150,8 @@ def scrape() -> list:
                 print('  genda: fuente inaccesible; se corta el intento diario')
                 break
         time.sleep(0.5)
+    if not eventos:
+        print('  genda: la fuente respondió pero no se parseó ningún evento; '
+              f'revisar el HTML de {BASE} y los selectores de _parsear_tarjetas')
     print(f'  genda: {len(eventos)} eventos en {DIAS_A_SCRAPEAR} días')
     return eventos
