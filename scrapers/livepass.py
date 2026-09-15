@@ -4,7 +4,9 @@ import re
 import requests
 from bs4 import BeautifulSoup
 
-from core.normalizar import evento, ajustar_anio, es_futuro, detectar_categoria
+from core.normalizar import (evento, ajustar_anio, es_futuro, detectar_categoria,
+                             es_la_plata)
+from core.sitemap import urls_de_sitemap, evento_jsonld, recorrer
 
 VENUES = {
     'opera': ('Teatro Ópera La Plata', 'Calle 58 entre 10 y 11, La Plata'),
@@ -64,6 +66,56 @@ def _parsear_pagina(html: str, venue_nombre: str, venue_dir: str) -> list:
     return eventos
 
 
+# --------------------------------------------------------------- plan B
+# El camino normal mira tres páginas de venue (/t/opera, /t/teatro-argentino,
+# /t/hipodromo-la-plata) y saca la fecha de un contexto de 400 caracteres
+# alrededor del título: si Livepass cambia el maquetado, devuelve cero sin
+# error. El sitemap lista las ~170 páginas de evento y cada una publica un
+# schema.org/Event completo, así que el plan B trae mejor material que el
+# camino normal —y además cubre salas que la lista de tres no mira: Guajira,
+# la Sala Ginastera del Argentino.
+#
+# Livepass vende en todo el país, así que hay que filtrar: el 80% de esas
+# páginas son de Café Berlín y otras salas porteñas.
+
+
+def _evento_de_pagina(html_pagina: str, url: str) -> list:
+    datos = evento_jsonld(html_pagina)
+    if not datos:
+        return []
+    contexto = f"{datos['lugar']} {datos['direccion']} {datos['titulo']}"
+    if not es_la_plata(contexto):
+        return []
+
+    titulo = _limpiar_titulo(datos['titulo']) or datos['titulo']
+    categoria = detectar_categoria(titulo, default='')
+    if not categoria:
+        categoria = detectar_categoria(
+            f"{titulo} {datos['descripcion']}", default='musica')
+
+    eventos = []
+    for fecha in datos['fechas']:
+        if not es_futuro(fecha):
+            continue
+        eventos.append(evento(
+            titulo, fecha, datos['lugar'] or 'La Plata',
+            categoria=categoria,
+            direccion=datos['direccion'], url=datos['url'] or url,
+            fuente='livepass', imagen=datos['imagen']))
+    return eventos
+
+
+def _scrape_sitemap() -> list:
+    urls = urls_de_sitemap('https://livepass.com.ar/', filtro='/events/',
+                           limite=400, etiqueta='livepass')
+    if not urls:
+        print('  livepass: el sitemap tampoco responde')
+        return []
+    eventos = recorrer(urls, _evento_de_pagina, etiqueta='livepass', pausa=0.2)
+    print(f'  livepass: plan B recupero {len(eventos)} eventos en La Plata')
+    return eventos
+
+
 def scrape() -> list:
     eventos = []
     for slug, (nombre, direccion) in VENUES.items():
@@ -107,4 +159,8 @@ def scrape() -> list:
     except requests.RequestException as e:
         print(f'  livepass/home: error {e}')
 
+    if not eventos:
+        print('  livepass: las paginas de venue no devolvieron nada; '
+              'se entra por el sitemap')
+        eventos = _scrape_sitemap()
     return eventos

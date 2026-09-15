@@ -13,6 +13,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from core.normalizar import detectar_categoria, es_futuro, evento
+from core.sitemap import urls_de_sitemap, evento_jsonld, meta_og, recorrer
 
 HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0'}
 SITIO = 'https://coliseopodesta.laplata.gob.ar'
@@ -83,13 +84,69 @@ def _evento_jsonld(html: str):
     return '', []
 
 
-def scrape() -> list:
-    r = _fetch(URL)
-    if not r:
-        print('  coliseo: cartelera inaccesible')
+def _dedup(eventos: list) -> list:
+    """Una obra puede aparecer varias veces en el listado: título + día manda."""
+    vistos, unicos = set(), []
+    for ev in eventos:
+        k = ev['titulo'].lower() + ev['fecha'][:10]
+        if k not in vistos:
+            vistos.add(k)
+            unicos.append(ev)
+    return unicos
+
+# --------------------------------------------------------------- plan B
+# Todo cuelga de /cartelera: si esa página se cae o cambia, no hay actividades
+# que recorrer. El sitemap lista las fichas directamente. Ojo: lista TODAS las
+# actividades desde 2020 (3.364 URLs), así que se filtra por <lastmod> y se
+# saltean las de /actividad/archivo/. La ficha trae el mismo Event JSON-LD que
+# usa el camino normal, con todas las funciones de la obra.
+DIAS_LASTMOD = 180
+
+
+def _es_ficha_viva(url: str) -> bool:
+    return '/actividad/' in url and '/actividad/archivo/' not in url
+
+
+def _ficha_de_pagina(html_pagina: str, url: str) -> list:
+    datos = evento_jsonld(html_pagina)
+    nombre = datos.get('titulo', '')
+    fechas = datos.get('fechas', [])
+    if not nombre or not fechas:
         return []
 
-    items = _actividades(BeautifulSoup(r.text, 'html.parser'))
+    seg = url.split('/actividad/')[-1].split('/')[0]
+    categoria = _categoria_de_seg(seg) or detectar_categoria(nombre)
+    imagen = datos.get('imagen') or meta_og(html_pagina).get('image', '')
+    eventos = []
+    for fecha in fechas:
+        if not es_futuro(fecha):
+            continue
+        eventos.append(evento(
+            nombre, fecha, 'Teatro Coliseo Podestá', categoria=categoria,
+            direccion=DIRECCION, url=url, fuente='coliseo', imagen=imagen))
+    return eventos
+
+
+def _scrape_sitemap() -> list:
+    urls = urls_de_sitemap(SITIO + '/', filtro=_es_ficha_viva,
+                           limite=MAX_FICHAS, dias_lastmod=DIAS_LASTMOD,
+                           etiqueta='coliseo')
+    if not urls:
+        print('  coliseo: el sitemap tampoco responde')
+        return []
+    eventos = recorrer(urls, _ficha_de_pagina, etiqueta='coliseo', pausa=0.2)
+    print(f'  coliseo: plan B recupero {len(eventos)} eventos')
+    return eventos
+
+
+def scrape() -> list:
+    r = _fetch(URL)
+    items = _actividades(BeautifulSoup(r.text, 'html.parser')) if r else {}
+    if not items:
+        print('  coliseo: la cartelera no devolvio actividades; '
+              'se entra por el sitemap')
+        return _dedup(_scrape_sitemap())
+
     eventos = []
     for href, meta in list(items.items())[:MAX_FICHAS]:
         url_full = href if href.startswith('http') else SITIO + href
@@ -113,12 +170,10 @@ def scrape() -> list:
             ))
         time.sleep(0.3)
 
-    # Dedup por título + día (una obra puede aparecer varias veces en el listado).
-    vistos, unicos = set(), []
-    for ev in eventos:
-        k = ev['titulo'].lower() + ev['fecha'][:10]
-        if k not in vistos:
-            vistos.add(k)
-            unicos.append(ev)
+    unicos = _dedup(eventos)
+    if not unicos:
+        print('  coliseo: las fichas no dieron ninguna fecha futura; '
+              'se entra por el sitemap')
+        return _dedup(_scrape_sitemap())
     print(f'  coliseo: {len(unicos)} eventos en {len(items)} actividades')
     return unicos
