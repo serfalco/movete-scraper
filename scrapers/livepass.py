@@ -28,6 +28,12 @@ CIUDADES_AJENAS = [
 HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0'}
 
 
+def _sin_tildes(t: str) -> str:
+    for a, b in (('á', 'a'), ('é', 'e'), ('í', 'i'), ('ó', 'o'), ('ú', 'u')):
+        t = t.replace(a, b)
+    return t
+
+
 def _limpiar_titulo(titulo: str):
     """Saca el sufijo ' en <lugar>' y descarta si es otra ciudad."""
     m = re.search(r'\sen\s+(.+)$', titulo, re.I)
@@ -88,6 +94,7 @@ def _evento_de_pagina(html_pagina: str, url: str) -> list:
         return []
 
     titulo = _limpiar_titulo(datos['titulo']) or datos['titulo']
+    lugar, direccion = _canonizar(datos['lugar'], datos['direccion'])
     categoria = detectar_categoria(titulo, default='')
     if not categoria:
         categoria = detectar_categoria(
@@ -98,22 +105,108 @@ def _evento_de_pagina(html_pagina: str, url: str) -> list:
         if not es_futuro(fecha):
             continue
         eventos.append(evento(
-            titulo, fecha, datos['lugar'] or 'La Plata',
+            titulo, fecha, lugar or 'La Plata',
             categoria=categoria,
-            direccion=datos['direccion'], url=datos['url'] or url,
+            direccion=direccion, url=datos['url'] or url,
             fuente='livepass', imagen=datos['imagen']))
     return eventos
 
 
-def _scrape_sitemap() -> list:
-    urls = urls_de_sitemap('https://livepass.com.ar/', filtro='/events/',
+# Nombres de sala que delatan La Plata en la propia URL del evento. Sirven
+# para no entrar a las páginas que seguro no son de acá: de las ~179 que lista
+# el sitemap, el 80% son de Buenos Aires (Café Berlín, CCNU, San Miguel) y la
+# URL ya lo dice —'...-en-cafe-berlin' contra '...-en-el-teatro-opera-lp'.
+# Medido el 15/09/2026: 33 pedidos en vez de 179, con los mismos 33 eventos.
+# 'estadio-uno', 'hirschi' y 'estadio-unico' salieron de correr el barrido
+# completo y mirar qué se le escapaba al prefiltro: el estadio de Estudiantes
+# se llama "Jorge Luis Hirschi" en la ficha pero en la URL figura como
+# 'tan-bionica-en-estadio-uno'. Ese es el punto débil del atajo —una sala con
+# nombre propio que no esté en esta lista pasa de largo— y por eso el plan B,
+# cuando la fuente se cae, barre las 179 sin filtrar.
+PISTAS_LA_PLATA = ('la-plata', '-lp', 'opera', 'teatro-argentino', 'hipodromo',
+                   'atenas', 'guajira', 'ginastera', 'hirschi', 'estadio-uno',
+                   'estadio-unico', 'ciudad-de-la-plata')
+
+
+# El JSON-LD escribe los nombres a su manera y sin tildes: "Teatro Opera La
+# Plata", "Hipodromo de La Plata", "Teatro Argentino Centro Provincial de las
+# Artes". Si quedan así, la misma sala aparece con dos nombres distintos en la
+# revista segun de que camino vino el evento. Se unifican con los nombres y
+# direcciones que ya tenia VENUES.
+CANONICAS = (
+    ('opera', 'opera'),
+    ('argentino', 'teatro-argentino'),
+    ('ginastera', 'teatro-argentino'),
+    ('hipodromo', 'hipodromo-la-plata'),
+)
+
+
+def _canonizar(lugar: str, direccion: str):
+    """Pasa el nombre del JSON-LD al nombre de siempre de esa sala."""
+    l = _sin_tildes(lugar.lower())
+    for pista, slug in CANONICAS:
+        if pista in l:
+            return VENUES[slug]
+    return lugar, direccion
+
+
+def _tiene_pista(url: str) -> bool:
+    u = url.lower()
+    return '/events/' in u and any(p in u for p in PISTAS_LA_PLATA)
+
+
+def _scrape_sitemap(completo: bool = False) -> list:
+    """Recorre las páginas de evento del sitemap.
+
+    completo=False (el modo de todas las semanas) entra solo a las URLs que
+    nombran una sala platense. Es barato y no se pierde nada de lo que hoy
+    sabemos mirar.
+
+    completo=True es para cuando el camino normal se cayó: ahí el costo ya no
+    importa y conviene mirar las 179, porque el prefiltro se apoya en una
+    lista de nombres y una sala nueva no estaría en ella.
+    """
+    filtro = '/events/' if completo else _tiene_pista
+    urls = urls_de_sitemap('https://livepass.com.ar/', filtro=filtro,
                            limite=400, etiqueta='livepass')
     if not urls:
         print('  livepass: el sitemap tampoco responde')
         return []
     eventos = recorrer(urls, _evento_de_pagina, etiqueta='livepass', pausa=0.2)
-    print(f'  livepass: plan B recupero {len(eventos)} eventos en La Plata')
+    modo = 'barrido completo' if completo else 'prefiltrado por URL'
+    print(f'  livepass: sitemap ({modo}) trajo {len(eventos)} eventos '
+          f'en La Plata desde {len(urls)} paginas')
     return eventos
+
+
+
+def _clave_titulo(t: str) -> str:
+    return re.sub(r'[^a-z0-9]', '', _sin_tildes(t.lower()))
+
+
+def _fusionar(de_venues: list, de_sitemap: list) -> list:
+    """Junta los dos caminos sin repetir el mismo show.
+
+    Las tarjetas del HTML de Livepass cortan los títulos largos con '...'
+    ("ROMPIENDO ESPEJOS - Tributo a Callej ...") mientras el JSON-LD los da
+    enteros ("... a Callejeros"). Como deduplicar() en main.py compara el
+    título entero, los veía distintos y el mismo show salía dos veces en la
+    revista. Acá gana el del sitemap, que además trae url e imagen.
+    """
+    por_dia = {}
+    for ev in de_sitemap:
+        por_dia.setdefault((ev['fecha'][:10], ev['lugar'].lower()), []).append(ev)
+
+    salida = []
+    for ev in de_venues:
+        recorte = re.sub(r'\s*(\.\.\.|…)\s*$', '', ev['titulo']).strip()
+        clave = _clave_titulo(recorte)
+        gemelos = por_dia.get((ev['fecha'][:10], ev['lugar'].lower()), [])
+        if len(clave) >= 10 and any(
+                _clave_titulo(g['titulo']).startswith(clave) for g in gemelos):
+            continue
+        salida.append(ev)
+    return salida + de_sitemap
 
 
 def scrape() -> list:
@@ -162,5 +255,14 @@ def scrape() -> list:
     if not eventos:
         print('  livepass: las paginas de venue no devolvieron nada; '
               'se entra por el sitemap')
-        eventos = _scrape_sitemap()
+        return _scrape_sitemap(completo=True)
+
+    # Con el camino normal sano, el sitemap igual se suma: las tres páginas de
+    # venue no miran Guajira ni la Sala Ginastera del Argentino, y el sitemap
+    # sí. Los repetidos los junta deduplicar() en main.py, que además completa
+    # imagen y link.
+    antes = len(eventos)
+    eventos = _fusionar(eventos, _scrape_sitemap())
+    print(f'  livepass: {len(eventos)} eventos '
+          f'({antes} de las paginas de venue antes de fusionar)')
     return eventos

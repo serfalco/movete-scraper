@@ -155,3 +155,101 @@ class LecturaDePaginaTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class LivepassPrefiltroTests(unittest.TestCase):
+    """El prefiltro por URL y la unificación de nombres de sala."""
+
+    def setUp(self):
+        from scrapers import livepass
+        self.lp = livepass
+
+    def test_entra_a_las_salas_platenses(self):
+        for u in ('https://livepass.com.ar/events/rey-garufa-en-el-teatro-opera-lp',
+                  'https://livepass.com.ar/events/diego-torres-en-el-hipodromo-de-la-plata',
+                  'https://livepass.com.ar/events/sin-datos-en-guajira-lp'):
+            with self.subTest(url=u):
+                self.assertTrue(self.lp._tiene_pista(u))
+
+    def test_estadio_de_estudiantes(self):
+        # Se llama "Jorge Luis Hirschi" en la ficha pero en la URL es
+        # 'estadio-uno'. Sin esta pista el prefiltro lo dejaba afuera.
+        self.assertTrue(self.lp._tiene_pista(
+            'https://livepass.com.ar/events/tan-bionica-en-estadio-uno'))
+
+    def test_no_entra_a_las_portenas(self):
+        for u in ('https://livepass.com.ar/events/dolar-blues-en-cafe-berlin',
+                  'https://livepass.com.ar/events/gyomara-trio-en-ccnu-2026-09-17',
+                  'https://livepass.com.ar/events/bhavi-en-san-miguel-18-09'):
+            with self.subTest(url=u):
+                self.assertFalse(self.lp._tiene_pista(u))
+
+    def test_unifica_el_nombre_de_la_sala(self):
+        # El JSON-LD escribe sin tildes y con nombres largos; la revista tiene
+        # que mostrar siempre el mismo nombre para la misma sala.
+        casos = {
+            'Teatro Opera La Plata': 'Teatro Ópera La Plata',
+            'Hipodromo de La Plata': 'Hipódromo de La Plata',
+            'Teatro Argentino Centro Provincial de las Artes': 'Teatro Argentino La Plata',
+            'Sala Ginastera - Teatro Argentino': 'Teatro Argentino La Plata',
+        }
+        for crudo, esperado in casos.items():
+            with self.subTest(sala=crudo):
+                self.assertEqual(self.lp._canonizar(crudo, '')[0], esperado)
+
+    def test_sala_desconocida_queda_como_viene(self):
+        # Guajira no está en VENUES: se respeta lo que diga la fuente.
+        self.assertEqual(self.lp._canonizar('Guajira', 'Calle 1'),
+                         ('Guajira', 'Calle 1'))
+
+    def test_la_sala_conocida_trae_su_direccion(self):
+        self.assertEqual(self.lp._canonizar('Teatro Opera La Plata', '')[1],
+                         'Calle 58 entre 10 y 11, La Plata')
+
+
+class LivepassFusionTests(unittest.TestCase):
+    """Las tarjetas del HTML cortan los títulos; el JSON-LD los da enteros."""
+
+    def setUp(self):
+        from scrapers import livepass
+        self.lp = livepass
+
+    def _ev(self, titulo, fecha='2026-09-25 20:00:00', lugar='Teatro Ópera La Plata'):
+        return {'titulo': titulo, 'fecha': fecha, 'lugar': lugar,
+                'direccion': '', 'categoria': 'musica', 'url': '',
+                'fuente': 'livepass', 'imagen': ''}
+
+    def test_el_cortado_cede_ante_el_entero(self):
+        venues = [self._ev('ROMPIENDO ESPEJOS - Tributo a Callej ...')]
+        sitemap = [self._ev('ROMPIENDO ESPEJOS - Tributo a Callejeros')]
+        r = self.lp._fusionar(venues, sitemap)
+        self.assertEqual([e['titulo'] for e in r],
+                         ['ROMPIENDO ESPEJOS - Tributo a Callejeros'])
+
+    def test_otro_dia_no_se_fusiona(self):
+        venues = [self._ev('ROMPIENDO ESPEJOS - Tributo a Callej ...',
+                           fecha='2026-10-02 20:00:00')]
+        sitemap = [self._ev('ROMPIENDO ESPEJOS - Tributo a Callejeros')]
+        self.assertEqual(len(self.lp._fusionar(venues, sitemap)), 2)
+
+    def test_otra_sala_no_se_fusiona(self):
+        venues = [self._ev('HECATOMBE - MI PRIMERA GUERRA MUNDIA ...',
+                           lugar='Teatro Argentino La Plata')]
+        sitemap = [self._ev('HECATOMBE - MI PRIMERA GUERRA MUNDIAL')]
+        self.assertEqual(len(self.lp._fusionar(venues, sitemap)), 2)
+
+    def test_dos_shows_distintos_conviven(self):
+        venues = [self._ev('EMANERO')]
+        sitemap = [self._ev('DYANGO')]
+        self.assertEqual(len(self.lp._fusionar(venues, sitemap)), 2)
+
+    def test_titulo_muy_corto_no_arrastra(self):
+        # "LA K" es prefijo de "LA KONGA" pero es demasiado corto para
+        # afirmar que son el mismo show.
+        venues = [self._ev('LA K')]
+        sitemap = [self._ev('LA KONGA')]
+        self.assertEqual(len(self.lp._fusionar(venues, sitemap)), 2)
+
+    def test_sin_sitemap_no_toca_nada(self):
+        venues = [self._ev('EMANERO'), self._ev('DYANGO')]
+        self.assertEqual(len(self.lp._fusionar(venues, [])), 2)
