@@ -39,6 +39,18 @@ from scrapers import (
 SALIDA = os.environ.get("SALIDA_JSON", "eventos.json")
 CACHE_DIR = os.environ.get("MOVETE_CACHE_DIR", "")
 
+# Fuentes troncales: las que sostienen el grueso de la cartelera. Si una de
+# estas no scrapea en vivo, la edición sale a medias aunque el respaldo la
+# tape. En las corridas del 27/08 y 03/09 de 2026 genda dio 0 dos semanas
+# seguidas y nadie se enteró: el ::warning:: queda en la pestaña Actions, la
+# corrida termina en verde y GitHub solo manda mail cuando algo FALLA.
+FUENTES_TRONCALES = ("genda", "livepass", "alternativa")
+
+# Archivo de alerta. main.py NO corta la corrida (si cortara, no se publicaría
+# la edición): deja el aviso acá y el workflow, ya publicado el sitio, falla
+# en el último paso para que salga el mail.
+ALERTA = os.environ.get("MOVETE_ALERTA", "_alerta.txt")
+
 
 def _cache_fuente(nombre: str) -> str:
     return os.path.join(CACHE_DIR, f"{nombre}.json")
@@ -234,13 +246,50 @@ def main() -> int:
         print(f"::warning::Fuentes que hoy dependen del respaldo (se van a vaciar solas "
               f"si no se arreglan): {', '.join(con_respaldo)}")
 
+    # ---- Alertas que tienen que salir del repo --------------------------
+    alertas: list[str] = []
+
+    troncales_caidas = [n for n in FUENTES_TRONCALES
+                        if estado_fuente.get(n, "vencida") != "ok"]
+    if troncales_caidas:
+        como = {"cache": "usando respaldo", "vencida": "sin datos"}
+        detalle = ", ".join(
+            f"{n} ({conteo_fuente.get(n, 0)} eventos, "
+            f"{como.get(estado_fuente.get(n), 'sin datos')})"
+            for n in troncales_caidas)
+        alertas.append(f"Fuente troncal sin scrapear en vivo: {detalle}")
+
     salud_previa = _leer_salud()
     total_previo = int(salud_previa.get("total") or 0)
     if total_previo and len(eventos) < total_previo * UMBRAL_CAIDA:
         caida = 100 - round(len(eventos) / total_previo * 100)
-        print(f"::warning::La cartelera cayó {caida}% respecto de la corrida del "
-              f"{salud_previa.get('fecha', '?')} ({total_previo} → {len(eventos)} eventos)")
+        msg = (f"La cartelera cayó {caida}% respecto de la corrida del "
+               f"{salud_previa.get('fecha', '?')} ({total_previo} → {len(eventos)} eventos)")
+        print(f"::warning::{msg}")
+        alertas.append(msg)
+
     _guardar_salud(len(eventos), conteo_fuente)
+
+    if alertas:
+        texto = ("La cartelera de MoVeTe salió incompleta:\n\n"
+                 + "\n".join(f"  - {a}" for a in alertas)
+                 + f"\n\nTotal publicado: {len(eventos)} eventos."
+                 + "\nPor fuente: "
+                 + ", ".join(f"{n}={c}" for n, c in conteo_fuente.items())
+                 + "\n")
+        try:
+            with open(ALERTA, "w", encoding="utf-8") as f:
+                f.write(texto)
+            print(f"\n[ALERTA] escrita en {ALERTA}; el workflow va a fallar "
+                  f"al final para que llegue el mail.")
+        except OSError as e:
+            print(f" [AVISO] no se pudo escribir {ALERTA} - {e}")
+    else:
+        # Si quedó una alerta de la corrida anterior en el runner, se limpia.
+        try:
+            os.remove(ALERTA)
+        except OSError:
+            pass
 
     return 0
 
