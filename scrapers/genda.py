@@ -129,26 +129,50 @@ def _parsear_dia(html: str, fecha_dia: date) -> list:
     return eventos
 
 
+# Genda aguanta mal las rafagas desde un runner de GitHub: se cayo entera en
+# las corridas del 27/08 y 03/09 de 2026 y volvio sola el 10/09, sin que el
+# codigo cambiara. Como es ~58% de la cartelera, conviene insistir antes de
+# darla por muerta: cada dia se reintenta con espera creciente.
+REINTENTOS = 3
+ESPERA_REINTENTO = (2, 5)  # segundos antes del 2do y del 3er intento
+
+
+def _pedir_dia(dia):
+    """Devuelve el HTML del dia, o None si no se pudo despues de reintentar."""
+    for intento in range(REINTENTOS):
+        try:
+            r = requests.get(BASE, params={'fecha': dia.isoformat()},
+                             headers=HEADERS, timeout=25)
+            if r.status_code == 200:
+                return r.text
+            print(f'  genda/{dia}: HTTP {r.status_code}'
+                  f'{" (reintento)" if intento + 1 < REINTENTOS else ""}')
+        except requests.RequestException as e:
+            print(f'  genda/{dia}: error {e}'
+                  f'{" (reintento)" if intento + 1 < REINTENTOS else ""}')
+        if intento + 1 < REINTENTOS:
+            time.sleep(ESPERA_REINTENTO[intento])
+    return None
+
+
 def scrape() -> list:
     eventos = []
     hoy = date.today()
     fallos_consecutivos = 0
     for offset in range(DIAS_A_SCRAPEAR):
         dia = hoy + timedelta(days=offset)
-        try:
-            r = requests.get(BASE, params={'fecha': dia.isoformat()},
-                             headers=HEADERS, timeout=25)
-            if r.status_code != 200:
-                print(f'  genda/{dia}: HTTP {r.status_code}')
-                continue
-            fallos_consecutivos = 0
-            eventos.extend(_parsear_dia(r.text, dia))
-        except requests.RequestException as e:
-            print(f'  genda/{dia}: error {e}')
+        html = _pedir_dia(dia)
+        if html is None:
             fallos_consecutivos += 1
-            if fallos_consecutivos >= 2:
+            # Antes cortaba a los 2 dias fallados seguidos. Con reintentos,
+            # 2 dias caidos ya son 6 pedidos fallados: si aguanta hasta 4,
+            # un bache corto no se lleva puesta la semana entera.
+            if fallos_consecutivos >= 4:
                 print('  genda: fuente inaccesible; se corta el intento diario')
                 break
+        else:
+            fallos_consecutivos = 0
+            eventos.extend(_parsear_dia(html, dia))
         time.sleep(0.5)
     if not eventos:
         print('  genda: la fuente respondió pero no se parseó ningún evento; '
