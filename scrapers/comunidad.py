@@ -1,7 +1,9 @@
-"""Eventos sumados por la comunidad — vienen de un formulario público.
+"""Eventos sumados por la comunidad — vienen del formulario de movete.info/sumar/.
 
-La gente carga su evento en un formulario; las respuestas caen en una planilla
-que se publica como CSV. Esta fuente lee ese CSV y suma los eventos a la edición.
+La gente carga su evento en https://movete.info/sumar/; el Worker del sitio lo
+guarda en la base D1 "movete-comunidad" y lo expone como CSV en
+https://movete.info/api/comunidad.csv (solo eventos futuros y no ocultos).
+Esta fuente lee ese CSV y suma los eventos a la edición.
 
 NO hay aprobación manual uno por uno (sería un laburo que no se hace con las
 otras fuentes). En cambio, el que confía es el pipeline, con reglas — igual que
@@ -17,8 +19,8 @@ los scrapers confían en su fuente por regla, no porque alguien mire cada evento
   - Lista negra editable (data/comunidad_bloqueados.txt) para el raro que se
     cuele: se agrega un término y en el próximo build desaparece.
 
-La URL del CSV se configura con MOVETE_EVENTOS_CSV. Si no está, no hace nada
-(la fuente queda lista para cuando exista la planilla).
+Por defecto lee https://movete.info/api/comunidad.csv. Se puede apuntar a otro
+CSV (p. ej. una planilla publicada) con la variable MOVETE_EVENTOS_CSV.
 """
 import csv
 import io
@@ -36,7 +38,8 @@ from core.normalizar import (
     evento,
 )
 
-CSV_URL = os.environ.get("MOVETE_EVENTOS_CSV", "").strip()
+CSV_URL = (os.environ.get("MOVETE_EVENTOS_CSV", "").strip()
+           or "https://movete.info/api/comunidad.csv")
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; MoVeTeBot/1.0)"}
 
 # Cuántos eventos de la comunidad entran como mucho por corrida. Aunque alguien

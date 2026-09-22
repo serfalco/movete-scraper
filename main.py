@@ -146,9 +146,8 @@ def main() -> int:
         teatrobar,
     ]
 
-    # Eventos cargados por la comunidad: solo si hay planilla configurada.
-    if os.environ.get("MOVETE_EVENTOS_CSV", "").strip():
-        fuentes.append(comunidad)
+    # Eventos cargados por la comunidad desde movete.info/sumar/.
+    fuentes.append(comunidad)
 
     # Fuentes más periodísticas: se pueden correr menos seguido.
     if correr_periodisticas:
