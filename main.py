@@ -33,6 +33,7 @@ from scrapers import (
     plateauno,
     passline,
     teatrobar,
+    teatrocerca,
 )
 
 # Dónde se escribe el JSON. Configurable por env para CI/CD.
@@ -144,6 +145,7 @@ def main() -> int:
         plateauno,
         passline,
         teatrobar,
+        teatrocerca,
     ]
 
     # Eventos cargados por la comunidad desde movete.info/sumar/.
