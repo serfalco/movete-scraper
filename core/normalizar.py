@@ -142,6 +142,10 @@ def _clave_titulo(titulo: str) -> str:
 # otro, estos son los números que hay que subir. Vale más un repetido —que se
 # ve— que un show que desaparece sin que nadie se entere.
 MIN_LARGO_PARECIDO = 12
+# Si el título corto es el comienzo del largo y además coinciden sala y hora,
+# alcanza con un largo menor: "Escalandrum" contra "Escalandrum - Jazz, tango
+# y folclore" son el mismo show aunque el corto tenga solo 11 letras.
+MIN_LARGO_PREFIJO_MISMA_FUNCION = 8
 MIN_PARECIDO_MISMA_FUNCION = 0.72
 MIN_PARECIDO_SUELTO = 0.90
 
@@ -168,13 +172,40 @@ def _clave_lugar(lugar: str) -> str:
     return re.sub(r'[^a-z0-9]', '', _sin_acentos(lugar.lower()))
 
 
+# Palabras que no distinguen una sala de otra ("Teatro", "Centro Cultural"...).
+_PALABRAS_SALA_COMUNES = {
+    'teatro', 'de', 'del', 'la', 'el', 'los', 'las', 'y', 'en', 'centro',
+    'cultural', 'museo', 'plata', 'sala', 'club', 'calle', 'av', 'avenida',
+}
+
+
+def _palabras_sala(lugar: str) -> set:
+    """Palabras que sí distinguen a la sala: 'Teatro y Museo Coliseo Podestá'
+    queda en {coliseo, podesta}."""
+    palabras = re.findall(r'[a-z0-9]+', _sin_acentos(lugar.lower()))
+    return {p for p in palabras
+            if p not in _PALABRAS_SALA_COMUNES and len(p) >= 3}
+
+
 def _misma_sala(a: str, b: str) -> bool:
     """Cada fuente escribe la sala a su manera: 'Teatro Metro', 'Teatro Metro
-    La Plata', 'Metro'. Alcanza con que una esté contenida en la otra."""
+    La Plata', 'Metro'. Alcanza con que una esté contenida en la otra.
+
+    Si no alcanza por texto, se comparan las palabras que distinguen a la
+    sala: 'Teatro Coliseo Podestá' y 'Teatro y Museo Coliseo Podestá', o
+    'Teatro de la UNLP' y 'Asociación Amigos del Taller de Teatro de la
+    Universidad Nacional de La Plata - Teatro UNLP', son la misma sala.
+    """
     ka, kb = _clave_lugar(a), _clave_lugar(b)
     if len(ka) < 4 or len(kb) < 4:
         return False
-    return ka in kb or kb in ka
+    if ka in kb or kb in ka:
+        return True
+    pa, pb = _palabras_sala(a), _palabras_sala(b)
+    if not pa or not pb:
+        return False
+    chico, grande = (pa, pb) if len(pa) <= len(pb) else (pb, pa)
+    return chico <= grande
 
 
 def _mismo_evento(uno: dict, otro: dict) -> bool:
@@ -193,14 +224,18 @@ def _mismo_evento(uno: dict, otro: dict) -> bool:
     a = _clave_titulo(uno['titulo'])
     b = _clave_titulo(otro['titulo'])
     corto, largo = sorted((a, b), key=len)
+    misma_hora = uno['fecha'][11:16] == otro['fecha'][11:16]
     if len(corto) < MIN_LARGO_PARECIDO:
-        return False
+        # Solo se perdona un título corto si es el comienzo del otro y la
+        # función (sala + hora) coincide.
+        if not (misma_hora and len(corto) >= MIN_LARGO_PREFIJO_MISMA_FUNCION
+                and largo.startswith(corto)):
+            return False
     if not _misma_sala(uno['lugar'], otro['lugar']):
         return False
     if largo.startswith(corto) and _es_secuela(largo[len(corto):]):
         return False
 
-    misma_hora = uno['fecha'][11:16] == otro['fecha'][11:16]
     if misma_hora and largo.startswith(corto):
         return True
     parecido = difflib.SequenceMatcher(None, a, b).ratio()
