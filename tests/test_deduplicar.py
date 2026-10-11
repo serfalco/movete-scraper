@@ -80,6 +80,27 @@ class SeJuntanTests(unittest.TestCase):
                   lugar='GUAJIRA BAR')]
         self.assertEqual(len(deduplicar(evs)), 1)
 
+    def test_sala_escrita_distinto_por_las_palabras_que_la_distinguen(self):
+        # Caso real del 10/10/2026: Genda y Teatro Cerca escriben distinto la
+        # sala del Coliseo y el texto de una no contiene al de la otra.
+        evs = [ev('Connie Ballarini: Tour 2026', lugar='Teatro y Museo Coliseo Podestá'),
+               ev('Connie Ballarini: Tour 2026 - La Plata',
+                  lugar='Teatro Municipal Coliseo Podestá', fuente='teatrocerca')]
+        self.assertEqual(len(deduplicar(evs)), 1)
+
+    def test_titulo_corto_que_es_el_comienzo_del_otro_en_la_misma_funcion(self):
+        # "Ivan Noble" tiene 9 letras: antes quedaba afuera por corto.
+        evs = [ev('Ivan Noble', lugar='Teatro Metro'),
+               ev('IVAN NOBLE 2026', lugar='Metro', fuente='plateauno')]
+        self.assertEqual(len(deduplicar(evs)), 1)
+
+    def test_sala_con_dos_nombres_y_subtitulo(self):
+        evs = [ev('Las del lirio', lugar='Viejo Almac\u00e9n el Obrero - Cantina del Obrero',
+                  hora='21:30'),
+               ev('Las del Lirio. Tullido retrato familiar', hora='21:30',
+                  lugar='CENTRO CULTURAL VIEJO ALMACEN EL OBRERO')]
+        self.assertEqual(len(deduplicar(evs)), 1)
+
     def test_un_anio_es_la_edicion_no_la_parte(self):
         evs = [ev('Festival de jazz de La Plata'),
                ev('Festival de jazz de La Plata 2026')]
@@ -119,6 +140,17 @@ class NoSeJuntanTests(unittest.TestCase):
 
     def test_dos_shows_distintos(self):
         self.assertEqual(len(deduplicar([ev('EMANERO'), ev('DYANGO')])), 2)
+
+    def test_prefijo_corto_en_otra_hora_no_se_junta(self):
+        # El permiso para titulos de 8 a 11 letras vale solo con la misma hora.
+        evs = [ev('Ivan Noble', hora='19:00'),
+               ev('Ivan Noble 2026', hora='22:00')]
+        self.assertEqual(len(deduplicar(evs)), 2)
+
+    def test_salas_distintas_con_una_palabra_en_comun(self):
+        evs = [ev('Historias innecesarias - Dami\u00e1n Kuc', lugar='Teatro Coliseo Podest\u00e1'),
+               ev('HISTORIAS INNECESARIAS', lugar='Teatro Argentino')]
+        self.assertEqual(len(deduplicar(evs)), 2)
 
     def test_mismo_titulo_otro_dia(self):
         evs = [ev('Historias innecesarias - Damián Kuc', fecha='2026-10-10'),
