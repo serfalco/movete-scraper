@@ -105,14 +105,43 @@ def _leer_salud() -> dict:
         return {}
 
 
-def _guardar_salud(total: int, por_fuente: dict[str, int]) -> None:
+# Fuentes que pueden dar 0 sin que nada esté roto: comunidad depende de que
+# alguien cargue algo en movete.info/sumar/.
+SIN_ALARMA_POR_CERO = ("comunidad",)
+
+
+def fuentes_que_se_cayeron(salud_previa: dict, estado_fuente: dict[str, str]) -> list[str]:
+    """Fuentes no troncales que en la corrida anterior scrapeaban en vivo y hoy no.
+
+    Solo avisa el cambio (ok -> caída), una vez: las que ya venían en cero
+    (teatrobar, eventbrite al 15/10/2026) no hacen ruido semana tras semana.
+    Si la salud anterior es de antes de guardar el estado, se usa la cantidad.
+    """
+    estado_previo = salud_previa.get("estado") or {}
+    por_fuente_previo = salud_previa.get("por_fuente") or {}
+    caidas = []
+    for nombre, estado in estado_fuente.items():
+        if nombre in FUENTES_TRONCALES or nombre in SIN_ALARMA_POR_CERO or estado == "ok":
+            continue
+        if estado_previo:
+            antes_ok = estado_previo.get(nombre) == "ok"
+        else:
+            antes_ok = int(por_fuente_previo.get(nombre) or 0) > 0
+        if antes_ok:
+            caidas.append(nombre)
+    return caidas
+
+
+def _guardar_salud(total: int, por_fuente: dict[str, int],
+                   estado: dict[str, str] | None = None) -> None:
     if not CACHE_DIR:
         return
     try:
         os.makedirs(CACHE_DIR, exist_ok=True)
         with open(os.path.join(CACHE_DIR, SALUD_PATH), "w", encoding="utf-8") as f:
             json.dump(
-                {"fecha": date.today().isoformat(), "total": total, "por_fuente": por_fuente},
+                {"fecha": date.today().isoformat(), "total": total,
+                 "por_fuente": por_fuente, "estado": estado or {}},
                 f, ensure_ascii=False, indent=2,
             )
     except OSError as e:
@@ -269,7 +298,19 @@ def main() -> int:
         print(f"::warning::{msg}")
         alertas.append(msg)
 
-    _guardar_salud(len(eventos), conteo_fuente)
+    caidas = fuentes_que_se_cayeron(salud_previa, estado_fuente)
+    if caidas:
+        msg = ("Fuente que la corrida anterior scrapeaba y hoy no: "
+               + ", ".join(f"{n} ({conteo_fuente.get(n, 0)} eventos, "
+                           f"{'usando respaldo' if estado_fuente.get(n) == 'cache' else 'sin datos'})"
+                           for n in caidas))
+        print(f"::warning::{msg}")
+        alertas.append(msg)
+
+    # El estado de cada fuente se guarda con la corrida: es lo que permite
+    # avisar solo el cambio y no repetir la alarma todas las semanas.
+    _guardar_salud(len(eventos), conteo_fuente, {
+        n: estado_fuente.get(n, "vencida") for n in conteo_fuente})
 
     if alertas:
         texto = ("La cartelera de MoVeTe salió incompleta:\n\n"
