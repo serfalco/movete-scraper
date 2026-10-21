@@ -363,3 +363,21 @@ def evento(titulo: str, fecha: str, lugar: str, categoria: str = '',
         'fuente': fuente,
         'imagen': imagen.strip(),
     }
+
+
+# Salas cerradas: las fuentes (la propia web de la sala, Teatro Cerca, Genda)
+# siguen listando funciones que ya se suspendieron. Mientras dure el cierre,
+# esas funciones no salen. (palabras de la sala, cerrada hasta esta fecha
+# exclusive, motivo).
+SALAS_CERRADAS = [
+    # laplataya.com.ar 08/10/2026: suspende todo hasta fines de noviembre
+    # por obras demoradas; ~20 shows reprogramados para diciembre.
+    ({'coliseo', 'podesta'}, '2026-12-01', 'obras en la sala'),
+]
+
+
+def en_sala_cerrada(ev: dict) -> bool:
+    palabras = _palabras_sala(ev.get('lugar', ''))
+    fecha = (ev.get('fecha') or '')[:10]
+    return any(clave <= palabras and fecha < hasta
+               for clave, hasta, _motivo in SALAS_CERRADAS)

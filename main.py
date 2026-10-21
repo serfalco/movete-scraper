@@ -17,7 +17,7 @@ import sys
 from collections import Counter
 from datetime import date, datetime
 
-from core.normalizar import deduplicar, es_futuro
+from core.normalizar import deduplicar, es_futuro, en_sala_cerrada
 
 from scrapers import (
     livepass,
@@ -232,6 +232,8 @@ def main() -> int:
         if not es_futuro(evento.get("fecha", "")):
             continue
         if not evento.get("titulo") or not evento.get("fecha"):
+            continue
+        if en_sala_cerrada(evento):
             continue
         eventos.append(evento)
 
