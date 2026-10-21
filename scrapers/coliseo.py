@@ -103,6 +103,18 @@ def _dedup(eventos: list) -> list:
 DIAS_LASTMOD = 180
 
 
+# El Coliseo publica sus comunicados como "actividad" con fecha, y el
+# scraper los tomaba por shows: "EL TELÓN BAJA POR UN TIEMPO: COMIENZA LA
+# SEGUNDA ETAPA DE PUESTA EN VALOR" salió en la cartelera (octubre 2026).
+_NOTICIA = re.compile(
+    r'puesta en valor|tel[oó]n baja|reapertura|comunicado|'
+    r'convocatoria|inscripci[oó]n', re.I)
+
+
+def es_noticia(titulo: str) -> bool:
+    return bool(_NOTICIA.search(titulo or ''))
+
+
 def _es_ficha_viva(url: str) -> bool:
     return '/actividad/' in url and '/actividad/archivo/' not in url
 
@@ -111,7 +123,7 @@ def _ficha_de_pagina(html_pagina: str, url: str) -> list:
     datos = evento_jsonld(html_pagina)
     nombre = datos.get('titulo', '')
     fechas = datos.get('fechas', [])
-    if not nombre or not fechas:
+    if not nombre or not fechas or es_noticia(nombre):
         return []
 
     seg = url.split('/actividad/')[-1].split('/')[0]
@@ -154,7 +166,7 @@ def scrape() -> list:
         if not d:
             continue
         nombre, fechas = _evento_jsonld(d.text)
-        if not nombre:
+        if not nombre or es_noticia(nombre):
             continue
         categoria = meta['categoria'] or detectar_categoria(nombre)
         for sd in fechas:
