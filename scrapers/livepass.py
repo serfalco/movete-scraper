@@ -4,7 +4,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 
-from core.normalizar import (evento, ajustar_anio, es_futuro, detectar_categoria,
+from core.normalizar import (evento, reparar_espacios, ajustar_anio, es_futuro, detectar_categoria,
                              es_la_plata)
 from core.sitemap import urls_de_sitemap, evento_jsonld, recorrer
 
@@ -54,7 +54,7 @@ def _parsear_pagina(html: str, venue_nombre: str, venue_dir: str) -> list:
         titulo_crudo = h.get_text(' ', strip=True).lstrip('#').strip()
         if len(titulo_crudo) < 4 or len(titulo_crudo) > 120:
             continue
-        titulo = _limpiar_titulo(titulo_crudo)
+        titulo = _limpiar_titulo(reparar_espacios(titulo_crudo))
         if not titulo or len(titulo) < 3:
             continue
         pos = str(soup).find(str(h))
@@ -93,7 +93,8 @@ def _evento_de_pagina(html_pagina: str, url: str) -> list:
     if not es_la_plata(contexto):
         return []
 
-    titulo = _limpiar_titulo(datos['titulo']) or datos['titulo']
+    crudo = reparar_espacios(datos['titulo'])
+    titulo = _limpiar_titulo(crudo) or crudo
     lugar, direccion = _canonizar(datos['lugar'], datos['direccion'])
     categoria = detectar_categoria(titulo, default='')
     if not categoria:

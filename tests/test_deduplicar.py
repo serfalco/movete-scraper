@@ -10,7 +10,7 @@ hora no coincide se exige mucho más, porque ahí sí conviven cosas distintas.
 """
 import unittest
 
-from core.normalizar import deduplicar, limpiar_titulo
+from core.normalizar import deduplicar, limpiar_titulo, evento
 
 
 def ev(titulo, hora='21:00', fecha='2026-10-10', lugar='Teatro Metro',
@@ -180,3 +180,25 @@ class QueSeConservaTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class EspaciosRotosYPalabrasSueltasTests(unittest.TestCase):
+    """Edición del 22/10/2026: Livepass manda '?' en lugar de espacios duros
+    y el mismo show salía dos veces en Guajira Bar."""
+
+    def test_livepass_espacios_rotos(self):
+        from core.normalizar import reparar_espacios
+        self.assertEqual(reparar_espacios("MAS ALLA?TOUR?en Guajira LP"),
+                         "MAS ALLA TOUR en Guajira LP")
+        self.assertEqual(reparar_espacios("¿Quién mató a Palito?"), "¿Quién mató a Palito?")
+        self.assertEqual(reparar_espacios("Hola?"), "Hola?")
+
+    def test_mismo_show_con_palabras_pegadas(self):
+        evs = [evento("Leti y Bic", "2026-10-25 20:00:00", "Guajira Bar"),
+               evento("143LETI?+ BIC", "2026-10-25 20:00:00", "Guajira Bar")]
+        self.assertEqual(len(deduplicar(evs)), 1)
+
+    def test_distinta_hora_no_se_junta_por_palabras(self):
+        evs = [evento("Leti y Bic", "2026-10-25 20:00:00", "Guajira Bar"),
+               evento("143LETI + BIC", "2026-10-25 23:00:00", "Guajira Bar")]
+        self.assertEqual(len(deduplicar(evs)), 2)

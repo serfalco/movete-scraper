@@ -100,11 +100,22 @@ def es_futuro(fecha: str) -> bool:
         return False
 
 
+def reparar_espacios(titulo: str) -> str:
+    """Livepass publica el nombre del Event con los espacios duros (U+00A0)
+    convertidos en '?': "MAS ALLA?TOUR?en Guajira LP". Un '?' pegado a la
+    palabra siguiente no es una pregunta —en castellano llevaría '¿'—, es un
+    espacio roto. Los '?' de fin de frase ("¿Quién?") se dejan."""
+    t = titulo.replace('\u00a0', ' ')
+    if '¿' not in t:
+        t = re.sub(r'(?<=\S)\?+(?=[^\s?!.,;:)\]"\'»”’])', ' ', t)
+    return t
+
+
 def limpiar_titulo(titulo: str) -> str:
     # Algunas fuentes entregan el título con entidades HTML sin convertir
     # ("Camerata Rosario presenta &apos;Las 8 Estaciones&apos;"). Se hace dos
     # veces porque hay fuentes que escapan dos veces (&amp;apos;).
-    t = _html.unescape(_html.unescape(titulo))
+    t = reparar_espacios(_html.unescape(_html.unescape(titulo)))
     t = re.sub(r'\s+', ' ', t).strip()
     # Las tarjetas cortan los títulos largos; los puntos suspensivos no son
     # parte del nombre del show y hacen que el mismo evento parezca dos.
@@ -208,6 +219,27 @@ def _misma_sala(a: str, b: str) -> bool:
     return chico <= grande
 
 
+_PALABRAS_TITULO_VACIAS = {'y', 'e', 'and', 'en', 'de', 'la', 'el', 'los', 'las', 'con', 'vivo'}
+
+
+def _palabras_contenidas(t1: str, t2: str) -> bool:
+    """True si todas las palabras del título con menos palabras aparecen
+    dentro del otro, que puede tenerlas pegadas o con prefijos: "Leti y Bic"
+    (genda) contra "143LETI + BIC" (livepass). Se pide un mínimo de letras
+    para no juntar títulos de una sola palabra corta."""
+    def palabras(t):
+        return [p for p in re.findall(r'[a-z0-9]+', _sin_acentos(t.lower()))
+                if p not in _PALABRAS_TITULO_VACIAS]
+    pa, pb = palabras(t1), palabras(t2)
+    if not pa or not pb:
+        return False
+    chico, grande = (pa, pb) if len(''.join(pa)) <= len(''.join(pb)) else (pb, pa)
+    if len(chico) < 2 or len(''.join(chico)) < 6:
+        return False
+    junto = ''.join(grande)
+    return all(p in junto for p in chico)
+
+
 def _mismo_evento(uno: dict, otro: dict) -> bool:
     """Decide si dos eventos del mismo día son en realidad el mismo show.
 
@@ -225,6 +257,9 @@ def _mismo_evento(uno: dict, otro: dict) -> bool:
     b = _clave_titulo(otro['titulo'])
     corto, largo = sorted((a, b), key=len)
     misma_hora = uno['fecha'][11:16] == otro['fecha'][11:16]
+    secuela = largo.startswith(corto) and _es_secuela(largo[len(corto):])
+    if misma_hora and not secuela and _palabras_contenidas(uno['titulo'], otro['titulo']):
+        return _misma_sala(uno['lugar'], otro['lugar'])
     if len(corto) < MIN_LARGO_PARECIDO:
         # Solo se perdona un título corto si es el comienzo del otro y la
         # función (sala + hora) coincide.
