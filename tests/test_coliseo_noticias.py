@@ -14,5 +14,16 @@ class NoticiasColiseoTests(unittest.TestCase):
             self.assertFalse(es_noticia(t), t)
 
 
+
+class SalaCerradaTests(unittest.TestCase):
+    def test_coliseo_cerrado_hasta_diciembre(self):
+        from core.normalizar import en_sala_cerrada
+        for lugar in ("Teatro Coliseo Podestá", "Teatro Municipal Coliseo Podestá",
+                      "Teatro y Museo Coliseo Podestá"):
+            self.assertTrue(en_sala_cerrada({"lugar": lugar, "fecha": "2026-11-14 20:00:00"}), lugar)
+        self.assertFalse(en_sala_cerrada({"lugar": "Teatro Coliseo Podestá", "fecha": "2026-12-08 20:30:00"}))
+        self.assertFalse(en_sala_cerrada({"lugar": "Teatro Metro", "fecha": "2026-11-14 20:00:00"}))
+
+
 if __name__ == "__main__":
     unittest.main()
