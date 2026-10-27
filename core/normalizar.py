@@ -157,6 +157,10 @@ MIN_LARGO_PARECIDO = 12
 # alcanza con un largo menor: "Escalandrum" contra "Escalandrum - Jazz, tango
 # y folclore" son el mismo show aunque el corto tenga solo 11 letras.
 MIN_LARGO_PREFIJO_MISMA_FUNCION = 8
+# Más corto todavía si el corto es el comienzo del largo en PALABRAS enteras:
+# "Play" (alternativa) contra "Play, de Samuel Beckett" (genda), misma sala y
+# hora, edición del 29/10/2026. "Play" contra "Playlist" no entra.
+MIN_LARGO_PALABRAS_MISMA_FUNCION = 4
 MIN_PARECIDO_MISMA_FUNCION = 0.72
 MIN_PARECIDO_SUELTO = 0.90
 
@@ -240,6 +244,18 @@ def _palabras_contenidas(t1: str, t2: str) -> bool:
     return all(p in junto for p in chico)
 
 
+def _empieza_con_palabras(t1: str, t2: str) -> bool:
+    """True si las palabras del título más corto son el comienzo exacto de
+    las del otro: "Play" y "Play, de Samuel Beckett"."""
+    def palabras(t):
+        return re.findall(r'[a-z0-9]+', _sin_acentos(t.lower()))
+    pa, pb = palabras(t1), palabras(t2)
+    if not pa or not pb or len(pa) == len(pb):
+        return False
+    chico, grande = (pa, pb) if len(pa) < len(pb) else (pb, pa)
+    return grande[:len(chico)] == chico
+
+
 def _mismo_evento(uno: dict, otro: dict) -> bool:
     """Decide si dos eventos del mismo día son en realidad el mismo show.
 
@@ -263,8 +279,11 @@ def _mismo_evento(uno: dict, otro: dict) -> bool:
     if len(corto) < MIN_LARGO_PARECIDO:
         # Solo se perdona un título corto si es el comienzo del otro y la
         # función (sala + hora) coincide.
-        if not (misma_hora and len(corto) >= MIN_LARGO_PREFIJO_MISMA_FUNCION
-                and largo.startswith(corto)):
+        prefijo_ok = misma_hora and largo.startswith(corto) and (
+            len(corto) >= MIN_LARGO_PREFIJO_MISMA_FUNCION
+            or (len(corto) >= MIN_LARGO_PALABRAS_MISMA_FUNCION
+                and _empieza_con_palabras(uno['titulo'], otro['titulo'])))
+        if not prefijo_ok:
             return False
     if not _misma_sala(uno['lugar'], otro['lugar']):
         return False
