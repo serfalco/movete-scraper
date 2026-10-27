@@ -202,3 +202,25 @@ class EspaciosRotosYPalabrasSueltasTests(unittest.TestCase):
         evs = [evento("Leti y Bic", "2026-10-25 20:00:00", "Guajira Bar"),
                evento("143LETI + BIC", "2026-10-25 23:00:00", "Guajira Bar")]
         self.assertEqual(len(deduplicar(evs)), 2)
+
+
+class TituloCortoMismaFuncionTests(unittest.TestCase):
+    """Edición del 29/10/2026: "Play" (alternativa) y "Play, de Samuel
+    Beckett" (genda) salían dos veces en el Teatro Argentino."""
+
+    def test_titulo_corto_misma_sala_y_hora(self):
+        evs = [evento("Play, de Samuel Beckett", "2026-10-29 19:30:00", "Teatro Argentino de La Plata"),
+               evento("Play", "2026-10-29 19:30:00", "Teatro Argentino de La Plata")]
+        r = deduplicar(evs)
+        self.assertEqual(len(r), 1)
+        self.assertEqual(r[0]['titulo'], "Play, de Samuel Beckett")
+
+    def test_titulo_corto_otra_hora_no_se_junta(self):
+        evs = [evento("Play, de Samuel Beckett", "2026-10-29 19:30:00", "Teatro Argentino de La Plata"),
+               evento("Play", "2026-10-29 22:00:00", "Teatro Argentino de La Plata")]
+        self.assertEqual(len(deduplicar(evs)), 2)
+
+    def test_prefijo_que_no_es_palabra_no_se_junta(self):
+        evs = [evento("Play", "2026-10-29 21:00:00", "Teatro Metro"),
+               evento("Playlist en vivo", "2026-10-29 21:00:00", "Teatro Metro")]
+        self.assertEqual(len(deduplicar(evs)), 2)
