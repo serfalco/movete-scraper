@@ -20,7 +20,18 @@ BASE = "https://www.passline.com/productora/"
 # Productoras de Passline que son salas del Gran La Plata. slug -> categoría por
 # defecto (la sala define el tono; las palabras clave del título mandan igual).
 PRODUCTORAS = {
-    "live-club-la-plata": "musica",   # Espacio Live
+    "live-club-la-plata": "musica",               # Espacio Live
+    # Relevadas el 01/11/2026 (12 eventos de noviembre que se perdían). Algunas
+    # cuentas tienen nombre de persona: son productoras que también pueden
+    # vender en otras ciudades; el filtro es_la_plata() deja solo lo local.
+    "7831099-casa-suiza": "musica",               # Casa Suiza
+    "13880381-diego-martin-yuma": "musica",       # Carpo Producciones
+    "137690-rc_shows": "musica",                  # Hopeless (Bye Henry)
+    "8724325-danny-brichetti": "musica",          # Nuevos Vientos (Guajira)
+    "13571230-tomas-munoz": "musica",             # LA TM +35 (Vonharv)
+    "la-magica": "musica",                        # La Mágica (Estadio UNO)
+    "10361152-jacob-scattini-aldana": "otros",    # La Cruzada Poética
+    "veronica-bassus": "otros",                   # ¿Por qué somos así? (La Nonna)
 }
 
 MESES = {
