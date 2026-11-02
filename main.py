@@ -30,6 +30,7 @@ from scrapers import (
     genda,
     alternativa,
     comunidad,
+    planilla,
     plateauno,
     passline,
     teatrobar,
@@ -107,7 +108,7 @@ def _leer_salud() -> dict:
 
 # Fuentes que pueden dar 0 sin que nada esté roto: comunidad depende de que
 # alguien cargue algo en movete.info/sumar/.
-SIN_ALARMA_POR_CERO = ("comunidad",)
+SIN_ALARMA_POR_CERO = ("comunidad", "planilla")
 
 
 def fuentes_que_se_cayeron(salud_previa: dict, estado_fuente: dict[str, str]) -> list[str]:
@@ -179,6 +180,8 @@ def main() -> int:
 
     # Eventos cargados por la comunidad desde movete.info/sumar/.
     fuentes.append(comunidad)
+    # Eventos de lugares chicos que releva GPT en una Google Sheet.
+    fuentes.append(planilla)
 
     # Fuentes más periodísticas: se pueden correr menos seguido.
     if correr_periodisticas:
