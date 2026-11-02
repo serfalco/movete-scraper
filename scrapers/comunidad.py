@@ -66,7 +66,8 @@ COLUMNAS = {
     "fecha": ("fecha", "dia", "fecha del evento"),
     "hora": ("hora", "horario"),
     "lugar": ("lugar", "sala", "espacio", "donde", "venue"),
-    "direccion": ("direccion", "domicilio", "calle", "barrio", "localidad"),
+    "direccion": ("direccion", "domicilio", "calle", "barrio"),
+    "localidad": ("localidad", "ciudad", "partido"),
     "categoria": ("categoria", "rubro", "tipo", "disciplina"),
     "url": ("url", "link", "enlace", "entradas", "mas info", "web", "instagram"),
     "imagen": ("imagen", "foto", "afiche", "flyer", "imagen del evento"),
@@ -173,7 +174,7 @@ def _arreglar_grito(titulo: str) -> str:
     return titulo
 
 
-def _parsear(texto_csv: str) -> list:
+def _parsear(texto_csv: str, fuente: str = "comunidad") -> list:
     """Convierte el CSV en eventos aplicando todos los guardrails. Testeable."""
     eventos = []
     bloqueados = _cargar_bloqueados()
@@ -183,7 +184,7 @@ def _parsear(texto_csv: str) -> list:
 
     mapa = _mapear_columnas(filas[0])
     if "titulo" not in mapa or "fecha" not in mapa:
-        print("  comunidad: la planilla no tiene columnas de título/fecha reconocibles")
+        print(f"  {fuente}: la planilla no tiene columnas de título/fecha reconocibles")
         return eventos
 
     def val(fila, campo):
@@ -210,12 +211,16 @@ def _parsear(texto_csv: str) -> list:
             continue
 
         # Tiene que ser de La Plata (por el lugar o la dirección).
-        if not es_la_plata(f"{lugar} {direccion}"):
+        if not es_la_plata(f"{lugar} {direccion} {val(fila, 'localidad')}"):
             continue
 
         cat = _sin_acentos(val(fila, "categoria").lower()).replace(" ", "-")
         if cat not in CATEGORIAS_VALIDAS:
-            cat = detectar_categoria(titulo)
+            # Categoría en texto libre ("Teatro / comedia"): se detecta desde
+            # ella y, si no alcanza, desde el título.
+            cat = detectar_categoria(val(fila, "categoria"), default="")
+            if not cat:
+                cat = detectar_categoria(titulo)
 
         url = val(fila, "url")
         if url and not url.startswith("http"):
@@ -232,7 +237,7 @@ def _parsear(texto_csv: str) -> list:
             categoria=cat,
             direccion=direccion,
             url=url,
-            fuente="comunidad",
+            fuente=fuente,
             imagen=imagen,
         ))
         if len(eventos) >= MAX_EVENTOS:
