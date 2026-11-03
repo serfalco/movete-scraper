@@ -4,7 +4,8 @@ Passline no lista por ciudad: se organiza por 'productora'. Se scrapea una lista
 curada de productoras que son salas platenses (empezando por Espacio Live). Cada
 página de productora trae sus eventos ya con fecha, lugar, imagen y link de compra.
 
-Para sumar una sala nueva: agregar su slug de productora a PRODUCTORAS.
+Para sumar una sala nueva: agregar su slug de productora a PRODUCTORAS
+(con lugares=None si la cuenta es de la sala, o la tupla de salas platenses).
 """
 import re
 from datetime import date
@@ -12,27 +13,45 @@ from datetime import date
 import requests
 from bs4 import BeautifulSoup
 
-from core.normalizar import es_futuro, es_la_plata, detectar_categoria, evento
+from core.normalizar import (EXCLUIR, _sin_acentos, detectar_categoria, es_futuro,
+                             es_la_plata, evento)
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0"}
 BASE = "https://www.passline.com/productora/"
 
-# Productoras de Passline que son salas del Gran La Plata. slug -> categoría por
-# defecto (la sala define el tono; las palabras clave del título mandan igual).
+# Productoras de Passline del Gran La Plata: slug -> (categoría por defecto, lugares).
+# Passline muestra como lugar solo el nombre de la sala ("Espacio Live", "Casa
+# Suiza"), sin ciudad, así que es_la_plata(lugar) daba siempre False y se
+# descartaba todo. Ahora:
+#   - lugares = None: la productora ES una sala platense, entra todo salvo que el
+#     título o el lugar nombren otra ciudad.
+#   - lugares = (...): la cuenta vende también en otras ciudades; entra solo si el
+#     lugar es una de esas salas platenses o si título/lugar dicen La Plata.
 PRODUCTORAS = {
-    "live-club-la-plata": "musica",               # Espacio Live
-    # Relevadas el 01/11/2026 (12 eventos de noviembre que se perdían). Algunas
-    # cuentas tienen nombre de persona: son productoras que también pueden
-    # vender en otras ciudades; el filtro es_la_plata() deja solo lo local.
-    "7831099-casa-suiza": "musica",               # Casa Suiza
-    "13880381-diego-martin-yuma": "musica",       # Carpo Producciones
-    "137690-rc_shows": "musica",                  # Hopeless (Bye Henry)
-    "8724325-danny-brichetti": "musica",          # Nuevos Vientos (Guajira)
-    "13571230-tomas-munoz": "musica",             # LA TM +35 (Vonharv)
-    "la-magica": "musica",                        # La Mágica (Estadio UNO)
-    "10361152-jacob-scattini-aldana": "otros",    # La Cruzada Poética
-    "veronica-bassus": "otros",                   # ¿Por qué somos así? (La Nonna)
+    "live-club-la-plata": ("musica", None),                          # Espacio Live
+    # Relevadas el 01/11/2026.
+    "7831099-casa-suiza": ("musica", None),                          # Casa Suiza
+    "13880381-diego-martin-yuma": ("musica", ("rene favaloro",)),    # Carpo Producciones
+    "137690-rc_shows": ("musica", ("hopeless",)),                    # Hopeless (Bye Henry)
+    "8724325-danny-brichetti": ("musica", ("guajira", "nuevos vientos")),
+    "13571230-tomas-munoz": ("musica", ("vonharv",)),                # LA TM +35
+    "la-magica": ("musica", ("estadio uno",)),                       # La Mágica
+    "10361152-jacob-scattini-aldana": ("otros", ("pampa cultural",)),  # La Cruzada Poética
+    "veronica-bassus": ("otros", ("la nonna",)),                     # ¿Por qué somos así?
 }
+
+
+def es_local(titulo: str, lugar: str, lugares) -> bool:
+    """Decide si un evento de una productora curada es del Gran La Plata."""
+    texto = f"{titulo} {lugar}"
+    t = _sin_acentos(texto.lower())
+    if any(x in t for x in EXCLUIR):
+        return False
+    if lugares is None or es_la_plata(texto):
+        return True
+    l = _sin_acentos((lugar or "").lower())
+    return any(v in l for v in lugares)
+
 
 MESES = {
     "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
@@ -59,7 +78,7 @@ def _fecha(texto: str) -> str:
         return ""
 
 
-def _scrapear_productora(slug: str, categoria_def: str) -> list:
+def _scrapear_productora(slug: str, categoria_def: str, lugares=None) -> list:
     eventos = []
     try:
         r = requests.get(BASE + slug, headers=HEADERS, timeout=25)
@@ -82,8 +101,7 @@ def _scrapear_productora(slug: str, categoria_def: str) -> list:
 
         loc = li.find("i", class_="icon-location")
         lugar = loc.parent.get_text(" ", strip=True) if loc else ""
-        # Curada como platense, pero si el evento nombra otra ciudad, afuera.
-        if lugar and not es_la_plata(lugar):
+        if not es_local(titulo, lugar, lugares):
             continue
 
         img = li.select_one("img")
@@ -106,7 +124,7 @@ def _scrapear_productora(slug: str, categoria_def: str) -> list:
 
 def scrape() -> list:
     eventos = []
-    for slug, categoria_def in PRODUCTORAS.items():
-        eventos.extend(_scrapear_productora(slug, categoria_def))
+    for slug, (categoria_def, lugares) in PRODUCTORAS.items():
+        eventos.extend(_scrapear_productora(slug, categoria_def, lugares))
     print(f"  passline: {len(eventos)} eventos en La Plata")
     return eventos
