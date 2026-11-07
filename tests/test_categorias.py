@@ -22,6 +22,32 @@ class DetectarCategoriaTests(unittest.TestCase):
             with self.subTest(titulo=titulo):
                 self.assertEqual(detectar_categoria(titulo), categoria)
 
+    def test_ferias_y_charlas(self):
+        casos = {
+            "Feria de Vinilos Platense": "ferias",
+            "14° degustación de cervezas platenses": "ferias",
+            "Buendia - Cumplimos 10 años": "ferias",
+            "11 Años de Baigón 58": "ferias",
+            "Panchita está de festejo": "ferias",
+            "Litertulia - Charla con Sergio Pujol": "charlas",
+            "Presentación de libros": "charlas",
+            "Fiesta de poesía": "charlas",
+            "Eve Vega - Conversatorio, festivales y ciclos": "charlas",
+            # Fiestas que son bailes: siguen en música.
+            "Fiesta Bresh": "musica",
+            "Fiesta Bizarra": "musica",
+            # Un show con "teatro" en el título no se va a ferias.
+            "Fiesta en el teatro de títeres": "infantil",
+            "Muestra de fotografía": "a-plasticas",
+        }
+        for titulo, categoria in casos.items():
+            with self.subTest(titulo=titulo):
+                self.assertEqual(detectar_categoria(titulo), categoria)
+
+    def test_fuente_de_teatro_no_manda_obras_a_ferias(self):
+        self.assertEqual(detectar_categoria("La fiesta del chivo", default="teatro"), "teatro")
+        self.assertEqual(detectar_categoria("Fiesta Bresh", default="musica"), "musica")
+
     def test_desconocido_va_a_otros(self):
         self.assertEqual(detectar_categoria("Destino circular"), "otros")
 
