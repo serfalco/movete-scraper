@@ -49,7 +49,7 @@ MAX_EVENTOS = 60
 # Categorías válidas del sitio. Si la persona elige otra cosa, se detecta sola.
 CATEGORIAS_VALIDAS = {
     "teatro", "musica", "stand-up", "cine", "danza", "infantil",
-    "humor", "impro", "taller", "a-plasticas", "otros",
+    "humor", "impro", "taller", "a-plasticas", "charlas", "ferias", "otros",
 }
 
 # Palabras que, si aparecen en el título o el lugar, descartan el evento.

@@ -43,10 +43,26 @@ REGLAS_CATEGORIA = [
     ('cine', (r'\bcine\b', r'\bfilm\b', r'\bpelicula\b', r'\bpantalla grande\b')),
     ('musica', (r'\bmusica\b', r'\brecital\b', r'\bconcierto\b', r'\bjazz\b',
                 r'\btango\b', r'\brock\b', r'\bcumbia\b', r'\borquesta\b',
-                r'\bbanda\b', r'\bacustic', r'\bpena\b')),
+                r'\bbanda\b', r'\bacustic', r'\bpena\b',
+                # Fiestas que son bailes con música (Livepass/Passline): sin
+                # esto caerían en 'ferias' por la palabra "fiesta".
+                r'\bdj\b', r'\bbresh\b', r'\bbizarra\b', r'\belectronica\b',
+                r'\btechno\b', r'\breggaeton\b', r'\bcachengue\b')),
     ('humor', (r'\bhumor\b', r'\bhumorista\b')),
     ('teatro', (r'\bteatro\b', r'\bobra\b', r'\bdramaturg', r'\bclown',
                 r'\bunipersonal\b', r'\bcomedia\b')),
+    # Las dos que siguen salieron de mirar "otros" en cinco ediciones (oct-nov
+    # 2026): ahí se juntaban 9 a 19 actividades por semana, casi todas de estos
+    # dos tipos. Van al final para que un show con "teatro" o "música" en el
+    # título no termine acá.
+    ('charlas', (r'\bcharlas?\b', r'\bconversatorio', r'\bpresentacion de(?:l)? libros?\b',
+                 r'\blibros?\b', r'\blibrerias?\b', r'\bpoesia\b', r'\bpoetic',
+                 r'\bpoemas?\b', r'\bliterari', r'\blectura\b', r'\brelatos?\b',
+                 r'\bcafe cultura\b', r'\bdisertacion\b', r'\bconferencia\b')),
+    ('ferias', (r'\bferias?\b', r'\bretroferia\b', r'\bfiestas?\b', r'\bfestej',
+                r'\bcumple(?:anos|mos)?\b', r'\bcumplimos\b', r'^\d+ anos de\b', r'\baniversario\b', r'\bdegustacion\b',
+                r'\bjuntada\b', r'\bcosplay\b', r'\bgastronomic', r'\bbebidas\b',
+                r'\bcervezas?\b', r'\bvinos?\b', r'\bfierrer', r'\bmercado\b')),
 ]
 
 
@@ -69,9 +85,17 @@ def es_la_plata(texto: str) -> bool:
     return False
 
 
+# Solo se usan para lo que, si no, iría a 'otros'. Una fuente de teatro o de
+# entradas (default 'teatro'/'musica') no las usa: "La fiesta del chivo" en
+# Alternativa Teatral es una obra, no una fiesta.
+SOLO_DESDE_OTROS = {'charlas', 'ferias'}
+
+
 def detectar_categoria(texto: str, default: str = 'otros') -> str:
     t = _sin_acentos(texto.lower())
     for slug, patrones in REGLAS_CATEGORIA:
+        if slug in SOLO_DESDE_OTROS and default != 'otros':
+            continue
         if any(re.search(patron, t) for patron in patrones):
             return slug
     return default
