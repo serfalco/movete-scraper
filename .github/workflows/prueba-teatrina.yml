@@ -2,18 +2,29 @@
 name: Prueba Teatrina
 on:
   push:
-    branches: [prueba/teatrina]
+    branches: [prueba/teatrina-2]
+permissions:
+  contents: write
 jobs:
   probar:
     runs-on: ubuntu-latest
     steps:
-      - name: Pedir páginas públicas
+      - uses: actions/checkout@v4
+      - name: Pedir páginas públicas y guardar resultado
         run: |
           UA='Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0'
+          : > resultado-teatrina.txt
           for u in https://teatrina.com/robots.txt \
                    https://teatrina.com/sitemap.xml \
                    https://teatrina.com/cartelera/barrio/la-plata \
                    https://teatrina.com/salas/teatro-rene-favaloro; do
             code=$(curl -sS -m 30 -A "$UA" -o /tmp/r -w '%{http_code}' "$u" || echo ERR)
-            echo "RESULTADO $code $u :: $(head -c 150 /tmp/r | tr -s '\n' ' ')"
+            echo "RESULTADO $code $u :: $(head -c 150 /tmp/r | tr -s '\n' ' ')" >> resultado-teatrina.txt
           done
+          cat resultado-teatrina.txt
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git checkout -b prueba/teatrina-resultado
+          git add resultado-teatrina.txt
+          git commit -m "Resultado prueba Teatrina"
+          git push origin prueba/teatrina-resultado
