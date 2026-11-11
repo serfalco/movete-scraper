@@ -14,6 +14,10 @@ import requests
 
 from scrapers.comunidad import HEADERS, _parsear
 
+# La planilla la carga GPT a pedido de Tres (no es pública para escribir),
+# así que el tope anti-spam de la comunidad le queda corto.
+MAX_PLANILLA = 200
+
 CSV_URL = (os.environ.get("MOVETE_PLANILLA_CSV", "").strip()
            or "https://docs.google.com/spreadsheets/d/"
               "1ezRx_3Q5jwT4zF97l9vaRFzNvEGTcO-lwHVuzzlEHkQ/export?format=csv&gid=0")
@@ -24,7 +28,7 @@ def scrape() -> list:
         r = requests.get(CSV_URL, headers=HEADERS, timeout=30)
         r.raise_for_status()
         r.encoding = "utf-8"
-        eventos = _parsear(r.text, fuente="planilla")
+        eventos = _parsear(r.text, fuente="planilla", tope=MAX_PLANILLA)
     except requests.RequestException as e:
         print(f"  planilla: error descargando — {e}")
         return []

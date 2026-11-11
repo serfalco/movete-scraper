@@ -174,7 +174,7 @@ def _arreglar_grito(titulo: str) -> str:
     return titulo
 
 
-def _parsear(texto_csv: str, fuente: str = "comunidad") -> list:
+def _parsear(texto_csv: str, fuente: str = "comunidad", tope: int = MAX_EVENTOS) -> list:
     """Convierte el CSV en eventos aplicando todos los guardrails. Testeable."""
     eventos = []
     bloqueados = _cargar_bloqueados()
@@ -240,7 +240,7 @@ def _parsear(texto_csv: str, fuente: str = "comunidad") -> list:
             fuente=fuente,
             imagen=imagen,
         ))
-        if len(eventos) >= MAX_EVENTOS:
+        if len(eventos) >= tope:
             break
 
     return eventos
