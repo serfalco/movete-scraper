@@ -27,6 +27,27 @@ ZONAS_LP = {
     'villa elisa', 'tolosa', 'los hornos', 'ringuelet',
 }
 
+# Salas de La Plata cargadas con otra zona en Alternativa (id del lugar).
+# 1140 = El Teatro Bar (calle 43 n° 632), figura como "Olivos".
+SALAS_LP_FORZADAS = {'1140'}
+
+# Caja del Gran La Plata (lat, lng). Muchas salas vienen con 0,0, así que
+# las coordenadas solo suman salas; nunca descartan una que diga La Plata.
+CAJA_LP = (-35.05, -34.80, -58.17, -57.80)
+
+
+def _es_gran_la_plata(id_lugar, lugar: dict) -> bool:
+    if lugar.get('zona', '').strip().lower() in ZONAS_LP:
+        return True
+    if str(id_lugar) in SALAS_LP_FORZADAS:
+        return True
+    try:
+        lat, lng = float(lugar.get('lat')), float(lugar.get('lng'))
+    except (TypeError, ValueError):
+        return False
+    lat_min, lat_max, lng_min, lng_max = CAJA_LP
+    return lat_min <= lat <= lat_max and lng_min <= lng <= lng_max
+
 
 def _descargar() -> dict:
     """Descarga y parsea el JSONP de la cartelera."""
@@ -64,8 +85,8 @@ def scrape() -> list:
         if imagen and not imagen.startswith('http'):
             imagen = 'https://' + imagen
 
-        for lugar in esp.get('lugares', {}).values():
-            if lugar.get('zona', '').strip().lower() not in ZONAS_LP:
+        for id_lugar, lugar in esp.get('lugares', {}).items():
+            if not _es_gran_la_plata(id_lugar, lugar):
                 continue
 
             sala = lugar.get('nombre', '').strip()
