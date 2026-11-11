@@ -85,3 +85,17 @@ class DetectarCategoriaTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_muestras_de_taller_van_como_show():
+    from core.normalizar import detectar_categoria as d
+    assert d('Muestra compañía Zafarrancho', default='teatro') == 'teatro'
+    assert d('El Gran Showman - Muestra Taller de montaje', default='teatro') == 'teatro'
+    assert d('Muestra de danza Estudio Ballet') == 'danza'
+
+
+def test_muestras_de_arte_siguen_en_plasticas():
+    from core.normalizar import detectar_categoria as d
+    assert d('Muestra de fotografía en el Dardo Rocha') == 'a-plasticas'
+    assert d('Muestra colectiva de pintores platenses') == 'a-plasticas'
+    assert d('Taller de cerámica') == 'taller'
