@@ -32,3 +32,12 @@ class TestPlanilla(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_planilla_no_corta_en_60():
+    from scrapers.comunidad import _parsear
+    filas = ["Nombre del evento,Categoría,Fecha,Hora,Lugar,Dirección,Localidad"]
+    filas += [f"Show {i},Música,20/12/2099,21:00,Sala X,Calle 7 Nº 100,La Plata" for i in range(80)]
+    texto = "\n".join(filas)
+    assert len(_parsear(texto, fuente="planilla")) == 60
+    assert len(_parsear(texto, fuente="planilla", tope=200)) == 80
