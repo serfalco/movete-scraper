@@ -29,15 +29,22 @@ MESES = {
 
 # El orden importa: primero van las categorias mas especificas. Las expresiones
 # usan limites de palabra para evitar coincidencias accidentales dentro de nombres.
+# "Muestra" es artes plásticas salvo que sea la muestra de fin de año de un
+# taller, academia o compañía: esa es una función y va como show.
+_MUESTRA_ARTE = (r'\bmuestra\b(?!.*\b(?:anual|taller|talleres|compania|montaje|'
+                 r'alumn\w*|academia|estudio|escuela|fin de ano|ballet|danza|dance|'
+                 r'pole|teatro|musical)\b)')
+
 REGLAS_CATEGORIA = [
     ('stand-up', (r'\bstand[ -]?up\b', r'\bopen mic\b')),
     ('impro', (r'\bimpro(?:visacion)?\b', r'\bmatch\b.*\bteatro deporte\b')),
-    ('taller', (r'\btaller(?:es)?\b', r'\bworkshop\b', r'\bcurso\b',
+    # Una "muestra de taller" es una función, no un taller: se trata como show.
+    ('taller', (r'^(?!.*\bmuestra\b).*\btaller(?:es)?\b', r'\bworkshop\b', r'\bcurso\b',
                 r'\bseminario\b', r'\bclinica\b', r'\bcapacitacion\b')),
     ('infantil', (r'\binfantil(?:es)?\b', r'\binfancias?\b', r'\bninos?\b',
                   r'\bbajitos\b', r'\btiteres\b')),
     ('danza', (r'\bdanza\b', r'\bballet\b', r'\bcoreograf')),
-    ('a-plasticas', (r'\bexposicion\b', r'\bexpo\b', r'\bmuestra\b',
+    ('a-plasticas', (r'\bexposicion\b', r'\bexpo\b', _MUESTRA_ARTE,
                      r'\bpintura\b', r'\bfotografia\b', r'\bescultura\b',
                      r'\bdibujo\b', r'\bmosaiquismo\b', r'\bartes? visual')),
     ('cine', (r'\bcine\b', r'\bfilm\b', r'\bpelicula\b', r'\bpantalla grande\b')),
