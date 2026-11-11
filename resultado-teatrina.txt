@@ -1,0 +1,4 @@
+RESULTADO 200 https://teatrina.com/robots.txt :: User-Agent: * Allow: / Allow: /api/v1/agenda Allow: /api/v1/shows Allow: /api/v1/venues Allow: /api/v1/artists Allow: /api/v1/courses Allow: /api/v1/c
+RESULTADO 403 https://teatrina.com/sitemap.xml :: {"success":false,"message":"Acceso restringido","error":{"code":"FORBIDDEN","message":"Acceso restringido","hint":"Consultá el catálogo público o h
+RESULTADO 403 https://teatrina.com/cartelera/barrio/la-plata :: {"success":false,"message":"Acceso restringido","error":{"code":"FORBIDDEN","message":"Acceso restringido","hint":"Consultá el catálogo público o h
+RESULTADO 403 https://teatrina.com/salas/teatro-rene-favaloro :: {"success":false,"message":"Acceso restringido","error":{"code":"FORBIDDEN","message":"Acceso restringido","hint":"Consultá el catálogo público o h
