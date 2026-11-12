@@ -25,6 +25,12 @@ class FuentesQueSeCayeronTests(unittest.TestCase):
         hoy = {"genda": "cache", "comunidad": "vencida"}
         self.assertEqual(fuentes_que_se_cayeron(previa, hoy), [])
 
+    def test_fuente_en_pausa_no_avisa(self):
+        # Pasada del domingo: passline no se scrapea, sale de su respaldo.
+        previa = {"estado": {"passline": "ok"}}
+        hoy = {"passline": "pausa"}
+        self.assertEqual(fuentes_que_se_cayeron(previa, hoy), [])
+
     def test_salud_vieja_sin_estado_usa_cantidades(self):
         # Formato del _salud.json anterior a este cambio.
         previa = {"por_fuente": {"passline": 6, "teatrobar": 0, "eventbrite": 0}}
