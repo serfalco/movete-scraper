@@ -24,7 +24,6 @@ from scrapers import (
     teatro_metro,
     coliseo,
     opera,
-    eventbrite,
     eldia,
     _0221,
     genda,
@@ -183,7 +182,9 @@ def main() -> int:
         teatro_metro,
         coliseo,
         opera,
-        eventbrite,
+        # eventbrite: afuera desde el 12/11/2026. Daba 0 eventos de La Plata al
+        # menos desde el 15/10. El scraper queda en scrapers/eventbrite.py por
+        # si vuelve a servir.
         plateauno,
         passline,
         teatrobar,
