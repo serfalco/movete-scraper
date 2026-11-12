@@ -53,6 +53,17 @@ FUENTES_TRONCALES = ("genda", "livepass", "alternativa")
 # en el último paso para que salga el mail.
 ALERTA = os.environ.get("MOVETE_ALERTA", "_alerta.txt")
 
+# Fuentes que en esta corrida NO se scrapean: se publican desde su respaldo.
+# Separadas por coma. La pasada del domingo pausa passline para no pegarle
+# más de lo que ya le pegamos (martes y jueves). Una fuente en pausa no
+# dispara alarmas y no cambia el estado que se compara la corrida siguiente.
+# Pasada del domingo: compara contra la corrida anterior pero no guarda su
+# salud. Asi la pasada del martes se sigue comparando contra el jueves y una
+# fuente que se cayo el domingo (sin mail) igual avisa el martes.
+SALUD_SOLO_LECTURA = os.environ.get("MOVETE_SALUD_SOLO_LECTURA") == "1"
+
+EN_PAUSA = {n.strip() for n in os.environ.get("MOVETE_FUENTES_EN_PAUSA", "").split(",") if n.strip()}
+
 
 def _cache_fuente(nombre: str) -> str:
     return os.path.join(CACHE_DIR, f"{nombre}.json")
@@ -122,7 +133,8 @@ def fuentes_que_se_cayeron(salud_previa: dict, estado_fuente: dict[str, str]) ->
     por_fuente_previo = salud_previa.get("por_fuente") or {}
     caidas = []
     for nombre, estado in estado_fuente.items():
-        if nombre in FUENTES_TRONCALES or nombre in SIN_ALARMA_POR_CERO or estado == "ok":
+        if (nombre in FUENTES_TRONCALES or nombre in SIN_ALARMA_POR_CERO
+                or estado in ("ok", "pausa")):
             continue
         if estado_previo:
             antes_ok = estado_previo.get(nombre) == "ok"
@@ -135,7 +147,7 @@ def fuentes_que_se_cayeron(salud_previa: dict, estado_fuente: dict[str, str]) ->
 
 def _guardar_salud(total: int, por_fuente: dict[str, int],
                    estado: dict[str, str] | None = None) -> None:
-    if not CACHE_DIR:
+    if not CACHE_DIR or SALUD_SOLO_LECTURA:
         return
     try:
         os.makedirs(CACHE_DIR, exist_ok=True)
@@ -207,6 +219,13 @@ def main() -> int:
 
     for fuente in fuentes:
         nombre = fuente.__name__.split(".")[-1]
+        if nombre in EN_PAUSA:
+            res, _ = _cargar_cache(nombre)
+            estado_fuente[nombre] = "pausa"
+            todos.extend(res)
+            conteo_fuente[nombre] = len(res)
+            print(f" [PAUSA] {nombre}: no se scrapea hoy, {len(res)} eventos del respaldo")
+            continue
         try:
             res = fuente.scrape()
             if not isinstance(res, list):
@@ -266,7 +285,7 @@ def main() -> int:
     # caiga y el respaldo lo tape hasta vaciarse. Por eso se avisa en tres
     # niveles y se compara el total contra la corrida anterior.
     print("\n--- Salud de fuentes ---")
-    etiquetas = {"ok": "OK", "cache": "RESPALDO", "vencida": "SIN DATOS"}
+    etiquetas = {"ok": "OK", "cache": "RESPALDO", "vencida": "SIN DATOS", "pausa": "EN PAUSA"}
     for nombre, cantidad in conteo_fuente.items():
         estado = estado_fuente.get(nombre, "vencida")
         print(f" {nombre:14} {cantidad:4} eventos   {etiquetas[estado]}")
@@ -285,7 +304,7 @@ def main() -> int:
     alertas: list[str] = []
 
     troncales_caidas = [n for n in FUENTES_TRONCALES
-                        if estado_fuente.get(n, "vencida") != "ok"]
+                        if estado_fuente.get(n, "vencida") not in ("ok", "pausa")]
     if troncales_caidas:
         como = {"cache": "usando respaldo", "vencida": "sin datos"}
         detalle = ", ".join(
@@ -314,8 +333,13 @@ def main() -> int:
 
     # El estado de cada fuente se guarda con la corrida: es lo que permite
     # avisar solo el cambio y no repetir la alarma todas las semanas.
+    # Una fuente en pausa conserva el estado de la corrida anterior: si no,
+    # la corrida siguiente la vería pasar de "pausa" a "ok" o al revés.
+    estado_previo = salud_previa.get("estado") or {}
     _guardar_salud(len(eventos), conteo_fuente, {
-        n: estado_fuente.get(n, "vencida") for n in conteo_fuente})
+        n: (estado_previo.get(n, "ok") if estado_fuente.get(n) == "pausa"
+            else estado_fuente.get(n, "vencida"))
+        for n in conteo_fuente})
 
     if alertas:
         texto = ("La cartelera de MoVeTe salió incompleta:\n\n"
