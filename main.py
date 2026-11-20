@@ -32,7 +32,6 @@ from scrapers import (
     planilla,
     plateauno,
     passline,
-    teatrobar,
     teatrocerca,
 )
 
@@ -187,7 +186,9 @@ def main() -> int:
         # si vuelve a servir.
         plateauno,
         passline,
-        teatrobar,
+        # teatrobar: afuera desde el 20/11/2026. elteatrobar.com.ar bloquea a
+        # los servidores (403) y daba 0 desde octubre; Teatro Bar entra igual
+        # por alternativa (sala 1140). El scraper queda en scrapers/teatrobar.py.
         teatrocerca,
     ]
 
