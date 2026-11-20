@@ -56,6 +56,13 @@ def urls_de_funciones(html_listado: str) -> list:
     return sorted(set(RE_FUNCION.findall(html_listado)))
 
 
+def _describir(html: str) -> str:
+    """Qué devolvió una página sin funciones, para diagnosticar desde el log."""
+    t = re.search(r'<title[^>]*>(.*?)</title>', html, re.S | re.I)
+    titulo = re.sub(r'\s+', ' ', t.group(1)).strip()[:80] if t else 'sin <title>'
+    return f'{len(html)} bytes, titulo: {titulo!r}'
+
+
 def _recolectar() -> dict:
     """{url_de_funcion: categoria}, uniendo el listado general y los filtros."""
     categoria_de: dict = {}
@@ -64,6 +71,8 @@ def _recolectar() -> dict:
         html = _pedir(LISTADO, {'categoria': filtro} if filtro else None)
         if not html:
             continue
+        if not filtro and not urls_de_funciones(html):
+            print(f'  teatrocerca: listado sin funciones ({_describir(html)})')
         for u in urls_de_funciones(html):
             rango = PRIORIDAD.index(filtro)
             if u not in mejor or rango < mejor[u]:
@@ -90,8 +99,15 @@ def parsear_funcion(html_pagina: str, url: str, categoria: str = 'teatro') -> li
     return salida
 
 
-def scrape() -> list:
+def scrape(espera_reintento: float = 45) -> list:
     funciones = _recolectar()
+    if not funciones:
+        # El 19/11/2026 el listado respondió 200 sin ninguna función y a las
+        # pocas horas andaba bien: se le da una segunda oportunidad antes de
+        # caer al respaldo.
+        print(f'  teatrocerca: listado vacío, se reintenta en {espera_reintento:.0f} s')
+        time.sleep(espera_reintento)
+        funciones = _recolectar()
     if not funciones:
         print('  teatrocerca: el listado de La Plata no devolvio funciones')
         return []
