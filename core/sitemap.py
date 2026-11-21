@@ -202,7 +202,7 @@ MAX_ELENCO = 8
 
 
 def _ofertas(offers) -> dict:
-    """precio (el más barato, número), moneda y disponibilidad de offers.
+    """precio (el más barato mayor a cero), moneda y disponibilidad de offers.
 
     Teatro Cerca, Livepass y Plateauno publican el precio en su JSON-LD; se
     usa para que la ficha de evento de Google lo muestre. Sin precio no se
@@ -223,8 +223,12 @@ def _ofertas(offers) -> dict:
         moneda = moneda or str(o.get('priceCurrency') or '').strip().upper()
         a = str(o.get('availability') or '').rsplit('/', 1)[-1].lower()
         disp = disp or DISPONIBILIDAD.get(a, '')
+    # Precio 0 no se toma como "gratis": Livepass publica 0 en shows pagos
+    # que todavía no tienen la venta abierta (Guasones en el Hipódromo,
+    # 21/11/2026). Se usa el más barato de los precios mayores a cero.
+    precios = [p for p in precios if p > 0]
     salida = {}
-    if precios and min(precios) >= 0:
+    if precios:
         p = min(precios)
         salida['precio'] = int(p) if p == int(p) else p
         salida['moneda'] = moneda or 'ARS'

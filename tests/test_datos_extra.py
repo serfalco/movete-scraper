@@ -29,11 +29,17 @@ class DatosExtraTests(unittest.TestCase):
             "precio": 30000, "moneda": "ARS", "disponibilidad": "disponible",
             "elenco": ["Letizia Bloisi", "Geraldine Vivier"]})
 
-    def test_gratis_y_varias_ofertas(self):
+    def test_precio_cero_no_es_gratis(self):
+        """Livepass pone 0 en shows pagos sin venta abierta."""
         obj = {"@type": "Event", "name": "X", "startDate": "2026-12-01T20:00",
-               "offers": [{"price": "5000"}, {"price": 0, "availability": "SoldOut"}]}
+               "offers": {"price": 0, "priceCurrency": "ARS"}}
+        self.assertNotIn("precio", datos_extra(evento_jsonld(pagina(obj))))
+
+    def test_varias_ofertas_toma_la_mas_barata(self):
+        obj = {"@type": "Event", "name": "X", "startDate": "2026-12-01T20:00",
+               "offers": [{"price": "5000"}, {"price": "3500"}, {"price": 0, "availability": "SoldOut"}]}
         extra = datos_extra(evento_jsonld(pagina(obj)))
-        self.assertEqual(extra["precio"], 0)
+        self.assertEqual(extra["precio"], 3500)
         self.assertEqual(extra["moneda"], "ARS")
         self.assertEqual(extra["disponibilidad"], "agotado")
 
