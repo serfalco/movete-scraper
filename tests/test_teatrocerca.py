@@ -37,3 +37,15 @@ class TeatroCercaTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_listado_vacio_se_reintenta_una_vez(monkeypatch):
+    """Si el listado viene sin funciones se prueba de nuevo antes del respaldo."""
+    from scrapers import teatrocerca as tc
+    llamadas = []
+    respuestas = [{}, {'https://teatrocerca.com.ar/obra/x/funcion/la-plata/y/1': 'teatro'}]
+    monkeypatch.setattr(tc, '_recolectar', lambda: llamadas.append(1) or respuestas[len(llamadas) - 1])
+    monkeypatch.setattr(tc, '_pedir', lambda url, params=None: None)
+    monkeypatch.setattr(tc.time, 'sleep', lambda s: None)
+    tc.scrape(espera_reintento=0)
+    assert len(llamadas) == 2
