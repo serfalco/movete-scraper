@@ -331,7 +331,7 @@ def _mismo_evento(uno: dict, otro: dict) -> bool:
 def _completar(base: dict, otro: dict) -> None:
     """Un duplicado puede traer datos que al primero le faltan."""
     for campo in ('imagen', 'url', 'direccion', 'precio', 'moneda',
-                  'disponibilidad', 'elenco'):
+                  'disponibilidad', 'elenco', 'sinopsis'):
         if base.get(campo) in (None, '', []) and otro.get(campo) not in (None, '', []):
             base[campo] = otro[campo]
     # Si el título que guardamos es el comienzo del otro, el otro lo dice

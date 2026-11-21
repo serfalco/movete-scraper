@@ -22,6 +22,7 @@ Lo que aprendimos mirando las 12 fuentes (15/09/2026):
   actividades desde 2020, pero solo ~60 se tocaron en los últimos meses.
 """
 import gzip
+import html as _html
 import json
 import re
 import time
@@ -250,11 +251,47 @@ def _elenco(performer) -> list:
     return nombres[:MAX_ELENCO]
 
 
+MAX_SINOPSIS = 240
+# Descripciones que no son de la obra sino de la venta: no sirven de sinopsis.
+_RE_NO_SINOPSIS = re.compile(
+    r'reserv[aá] tus entradas|compr[aá] tus entradas|entradas a la venta|'
+    r'^\s*funci[oó]n (el|del)\b|precio|\$\s?\d|medios de pago|horario de puertas',
+    re.I)
+
+
+def sinopsis(texto: str, maximo: int = MAX_SINOPSIS) -> str:
+    """Las primeras frases de la descripción de la obra, hasta `maximo`.
+
+    Es un extracto corto (una o dos frases) del texto de difusión que la sala
+    publica, para que la página de la obra tenga algo propio que leer. Corta
+    en un punto; si la primera frase ya es más larga, corta en una palabra y
+    pone puntos suspensivos. '' si no hay texto útil.
+    """
+    t = _html.unescape(re.sub(r'<[^>]+>', ' ', texto or ''))
+    t = re.sub(r'\s+', ' ', t).strip()
+    if len(t) < 40 or _RE_NO_SINOPSIS.search(t):
+        return ''
+    frases = re.split(r'(?<=[.!?…])\s+(?=[A-ZÁÉÍÓÚÑ¿¡"«])', t)
+    salida = ''
+    for f in frases:
+        if len(salida) + len(f) + 1 > maximo:
+            break
+        salida = f'{salida} {f}'.strip()
+    if not salida:
+        corte = t[:maximo].rsplit(' ', 1)[0].rstrip(' ,;:-–—')
+        salida = corte + '…'
+    return salida[:1].upper() + salida[1:]
+
+
 def datos_extra(datos: dict) -> dict:
     """Lo opcional del JSON-LD que pasa al evento: precio, moneda,
-    disponibilidad, elenco. Solo las claves que vinieron."""
-    return {k: datos[k] for k in ('precio', 'moneda', 'disponibilidad', 'elenco')
-            if datos.get(k) not in (None, '', [])}
+    disponibilidad, elenco y sinopsis. Solo las claves que vinieron."""
+    extra = {k: datos[k] for k in ('precio', 'moneda', 'disponibilidad', 'elenco')
+             if datos.get(k) not in (None, '', [])}
+    s = sinopsis(datos.get('descripcion', ''))
+    if s:
+        extra['sinopsis'] = s
+    return extra
 
 
 def _fechas_iso(valor) -> list:
