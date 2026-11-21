@@ -59,3 +59,34 @@ class DatosExtraTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SinopsisTests(unittest.TestCase):
+    def test_corta_en_frase(self):
+        from core.sitemap import sinopsis
+        t = ("Durante años, un escritor mantuvo su prestigio gracias a un pacto sobrenatural. "
+             "Pero el acuerdo deja de funcionar y una de las partes regresa para cobrar lo que le "
+             "corresponde. Desde ese momento, cualquiera puede convertirse en presa y todos quedan "
+             "obligados a actuar.")
+        s = sinopsis(t)
+        self.assertTrue(s.startswith("Durante años"))
+        self.assertTrue(s.endswith("corresponde."))
+        self.assertLessEqual(len(s), 240)
+
+    def test_frase_larga_corta_en_palabra(self):
+        from core.sitemap import sinopsis
+        s = sinopsis("palabra " * 60)
+        self.assertTrue(s.endswith("…"))
+        self.assertLessEqual(len(s), 241)
+
+    def test_descarta_textos_de_venta_y_cortos(self):
+        from core.sitemap import sinopsis
+        self.assertEqual(sinopsis("Función el 21 de noviembre a las 21 hs. Reservá tus entradas."), "")
+        self.assertEqual(sinopsis("Show en vivo."), "")
+        self.assertEqual(sinopsis("<p>Una obra sobre la memoria &amp; el olvido en la ciudad de La Plata.</p>"),
+                         "Una obra sobre la memoria & el olvido en la ciudad de La Plata.")
+
+    def test_llega_al_evento(self):
+        obj = dict(TEATROCERCA["@graph"][0], description="Durante años, un escritor mantuvo su prestigio gracias a un pacto sobrenatural.")
+        extra = datos_extra(evento_jsonld(pagina(obj)))
+        self.assertEqual(extra["sinopsis"], "Durante años, un escritor mantuvo su prestigio gracias a un pacto sobrenatural.")
