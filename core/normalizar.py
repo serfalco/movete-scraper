@@ -330,8 +330,9 @@ def _mismo_evento(uno: dict, otro: dict) -> bool:
 
 def _completar(base: dict, otro: dict) -> None:
     """Un duplicado puede traer datos que al primero le faltan."""
-    for campo in ('imagen', 'url', 'direccion'):
-        if not base.get(campo) and otro.get(campo):
+    for campo in ('imagen', 'url', 'direccion', 'precio', 'moneda',
+                  'disponibilidad', 'elenco'):
+        if base.get(campo) in (None, '', []) and otro.get(campo) not in (None, '', []):
             base[campo] = otro[campo]
     # Si el título que guardamos es el comienzo del otro, el otro lo dice
     # entero: "EL ESCRITOR DE TODAS LAS" contra "EL ESCRITOR DE TODAS LAS
@@ -400,10 +401,14 @@ def deduplicar(eventos: list) -> list:
 
 def evento(titulo: str, fecha: str, lugar: str, categoria: str = '',
            direccion: str = '', url: str = '', fuente: str = '',
-           imagen: str = '') -> dict:
-    """Constructor estándar de evento."""
+           imagen: str = '', extra: dict | None = None) -> dict:
+    """Constructor estándar de evento.
+
+    extra: campos opcionales que algunas fuentes traen (precio, moneda,
+    disponibilidad, elenco; ver core.sitemap.datos_extra).
+    """
     titulo = limpiar_titulo(titulo)
-    return {
+    return {**(extra or {}),
         'titulo': titulo,
         'fecha': fecha,
         'lugar': lugar.strip()[:100],

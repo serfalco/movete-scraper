@@ -17,7 +17,7 @@ import time
 import requests
 
 from core.normalizar import es_futuro, evento
-from core.sitemap import evento_jsonld
+from core.sitemap import evento_jsonld, datos_extra
 
 HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0'}
 SITIO = 'https://teatrocerca.com.ar'
@@ -95,6 +95,7 @@ def parsear_funcion(html_pagina: str, url: str, categoria: str = 'teatro') -> li
             d['titulo'], fecha, d['lugar'] or 'La Plata',
             categoria=categoria, direccion=d['direccion'],
             url=d['url'] or url, fuente='teatrocerca', imagen=d['imagen'],
+            extra=datos_extra(d),
         ))
     return salida
 

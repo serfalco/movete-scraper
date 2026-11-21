@@ -194,6 +194,69 @@ def _primera_imagen(img):
     return img if isinstance(img, str) else ''
 
 
+DISPONIBILIDAD = {
+    'instock': 'disponible', 'limitedavailability': 'pocas',
+    'soldout': 'agotado', 'presale': 'preventa', 'preorder': 'preventa',
+}
+MAX_ELENCO = 8
+
+
+def _ofertas(offers) -> dict:
+    """precio (el más barato mayor a cero), moneda y disponibilidad de offers.
+
+    Teatro Cerca, Livepass y Plateauno publican el precio en su JSON-LD; se
+    usa para que la ficha de evento de Google lo muestre. Sin precio no se
+    inventa nada.
+    """
+    lista = offers if isinstance(offers, list) else [offers]
+    precios, moneda, disp = [], '', ''
+    for o in lista:
+        if not isinstance(o, dict):
+            continue
+        for crudo in (o.get('price'), o.get('lowPrice')):
+            if crudo in (None, ''):
+                continue
+            try:
+                precios.append(float(str(crudo).replace(',', '.')))
+            except ValueError:
+                pass
+        moneda = moneda or str(o.get('priceCurrency') or '').strip().upper()
+        a = str(o.get('availability') or '').rsplit('/', 1)[-1].lower()
+        disp = disp or DISPONIBILIDAD.get(a, '')
+    # Precio 0 no se toma como "gratis": Livepass publica 0 en shows pagos
+    # que todavía no tienen la venta abierta (Guasones en el Hipódromo,
+    # 21/11/2026). Se usa el más barato de los precios mayores a cero.
+    precios = [p for p in precios if p > 0]
+    salida = {}
+    if precios:
+        p = min(precios)
+        salida['precio'] = int(p) if p == int(p) else p
+        salida['moneda'] = moneda or 'ARS'
+    if disp:
+        salida['disponibilidad'] = disp
+    return salida
+
+
+def _elenco(performer) -> list:
+    """Nombres de quienes actúan, sin repetir, hasta MAX_ELENCO."""
+    lista = performer if isinstance(performer, list) else [performer]
+    nombres = []
+    for p in lista:
+        n = p.get('name') if isinstance(p, dict) else p
+        if isinstance(n, str):
+            n = n.strip().rstrip('.').strip()
+            if n and n not in nombres and len(n) <= 60:
+                nombres.append(n)
+    return nombres[:MAX_ELENCO]
+
+
+def datos_extra(datos: dict) -> dict:
+    """Lo opcional del JSON-LD que pasa al evento: precio, moneda,
+    disponibilidad, elenco. Solo las claves que vinieron."""
+    return {k: datos[k] for k in ('precio', 'moneda', 'disponibilidad', 'elenco')
+            if datos.get(k) not in (None, '', [])}
+
+
 def _fechas_iso(valor) -> list:
     """startDate puede venir suelto o como lista (Coliseo publica todas las
     funciones de una obra en un solo Event). Normaliza a 'YYYY-MM-DD HH:MM:00'."""
@@ -237,6 +300,8 @@ def evento_jsonld(html_pagina: str) -> dict:
             'imagen': _primera_imagen(obj.get('image')),
             'descripcion': (obj.get('description') or '').strip(),
             'url': (obj.get('url') or '').strip(),
+            **_ofertas(obj.get('offers')),
+            'elenco': _elenco(obj.get('performer')),
         }
     return {}
 

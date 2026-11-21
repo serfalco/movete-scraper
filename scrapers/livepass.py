@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 
 from core.normalizar import (evento, reparar_espacios, ajustar_anio, es_futuro, detectar_categoria,
                              es_la_plata)
-from core.sitemap import urls_de_sitemap, evento_jsonld, recorrer
+from core.sitemap import urls_de_sitemap, evento_jsonld, recorrer, datos_extra
 
 VENUES = {
     'opera': ('Teatro Ópera La Plata', 'Calle 58 entre 10 y 11, La Plata'),
@@ -109,7 +109,8 @@ def _evento_de_pagina(html_pagina: str, url: str) -> list:
             titulo, fecha, lugar or 'La Plata',
             categoria=categoria,
             direccion=direccion, url=datos['url'] or url,
-            fuente='livepass', imagen=datos['imagen']))
+            fuente='livepass', imagen=datos['imagen'],
+            extra=datos_extra(datos)))
     return eventos
 
 
