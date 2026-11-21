@@ -83,6 +83,10 @@ class SinopsisTests(unittest.TestCase):
         from core.sitemap import sinopsis
         self.assertEqual(sinopsis("Función el 21 de noviembre a las 21 hs. Reservá tus entradas."), "")
         self.assertEqual(sinopsis("Show en vivo."), "")
+        self.assertEqual(sinopsis("ENTRADAPRECIOGENERALDesde $50.000**los precios publicados en la web "
+                                  "no incluyen cargo por servicioMEDIOS DE PAGO HABILITADOS"), "")
+        self.assertEqual(sinopsis("una de las caras más reconocidas del humor argentino."),
+                         "Una de las caras más reconocidas del humor argentino.")
         self.assertEqual(sinopsis("<p>Una obra sobre la memoria &amp; el olvido en la ciudad de La Plata.</p>"),
                          "Una obra sobre la memoria & el olvido en la ciudad de La Plata.")
 

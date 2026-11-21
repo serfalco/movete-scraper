@@ -110,7 +110,9 @@ def _evento_de_pagina(html_pagina: str, url: str) -> list:
             categoria=categoria,
             direccion=direccion, url=datos['url'] or url,
             fuente='livepass', imagen=datos['imagen'],
-            extra=datos_extra(datos)))
+            # La descripción de Livepass es la grilla de precios y sectores,
+            # no una sinopsis: no se usa.
+            extra={k: v for k, v in datos_extra(datos).items() if k != 'sinopsis'}))
     return eventos
 
 

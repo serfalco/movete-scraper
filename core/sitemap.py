@@ -255,7 +255,8 @@ MAX_SINOPSIS = 240
 # Descripciones que no son de la obra sino de la venta: no sirven de sinopsis.
 _RE_NO_SINOPSIS = re.compile(
     r'reserv[aá] tus entradas|compr[aá] tus entradas|entradas a la venta|'
-    r'^\s*funci[oó]n (el|del)\b', re.I)
+    r'^\s*funci[oó]n (el|del)\b|precio|\$\s?\d|medios de pago|horario de puertas',
+    re.I)
 
 
 def sinopsis(texto: str, maximo: int = MAX_SINOPSIS) -> str:
@@ -279,7 +280,7 @@ def sinopsis(texto: str, maximo: int = MAX_SINOPSIS) -> str:
     if not salida:
         corte = t[:maximo].rsplit(' ', 1)[0].rstrip(' ,;:-–—')
         salida = corte + '…'
-    return salida
+    return salida[:1].upper() + salida[1:]
 
 
 def datos_extra(datos: dict) -> dict:
