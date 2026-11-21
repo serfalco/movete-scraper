@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 
 from core.normalizar import (ajustar_anio, detectar_categoria, es_futuro,
                              es_la_plata, evento)
-from core.sitemap import urls_de_sitemap, evento_jsonld, recorrer
+from core.sitemap import urls_de_sitemap, evento_jsonld, recorrer, datos_extra
 
 BASE = "https://www.plateaunotickets.com/"
 CARTELERA = BASE + "cartelera.php"
@@ -79,7 +79,8 @@ def _obra_de_pagina(html_pagina: str, url: str) -> list:
             datos['titulo'], fecha, sala,
             categoria=categoria,
             direccion=datos['direccion'], url=datos['url'] or url,
-            fuente="plateauno", imagen=datos['imagen']))
+            fuente="plateauno", imagen=datos['imagen'],
+            extra=datos_extra(datos)))
     return eventos
 
 

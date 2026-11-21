@@ -13,7 +13,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from core.normalizar import detectar_categoria, es_futuro, evento
-from core.sitemap import urls_de_sitemap, evento_jsonld, meta_og, recorrer
+from core.sitemap import urls_de_sitemap, evento_jsonld, meta_og, recorrer, datos_extra
 
 HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0'}
 SITIO = 'https://coliseopodesta.laplata.gob.ar'
@@ -135,7 +135,8 @@ def _ficha_de_pagina(html_pagina: str, url: str) -> list:
             continue
         eventos.append(evento(
             nombre, fecha, 'Teatro Coliseo Podestá', categoria=categoria,
-            direccion=DIRECCION, url=url, fuente='coliseo', imagen=imagen))
+            direccion=DIRECCION, url=url, fuente='coliseo', imagen=imagen,
+            extra=datos_extra(datos)))
     return eventos
 
 
