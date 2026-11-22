@@ -5,6 +5,7 @@ import hashlib
 import html as _html
 import re
 import unicodedata
+from collections import Counter
 
 LOCALIDADES = [
     'la plata', 'laplata', 'ensenada', 'berisso', 'city bell',
@@ -436,3 +437,130 @@ def en_sala_cerrada(ev: dict) -> bool:
     fecha = (ev.get('fecha') or '')[:10]
     return any(clave <= palabras and fecha < hasta
                for clave, hasta, _motivo in SALAS_CERRADAS)
+
+
+# ---------------------------------------------------------------------------
+# Recorridos: un mismo evento cargado una vez por sede
+# ---------------------------------------------------------------------------
+# La Noche de los Templos (21/11/2026) llegó desde Genda como 11 "eventos",
+# uno por templo, cada uno titulado con el nombre del templo y todos a la
+# misma hora. En la cartelera eran 11 tarjetas que decían "Iglesia San
+# Francisco", "Catedral de La Plata"... sin decir de qué se trataba. Lo mismo
+# pasa con la Noche de los Museos y cualquier circuito por sedes.
+#
+# Señal: muchos eventos de la misma fuente, a la misma fecha y hora, cada uno
+# en un lugar distinto, y en la mayoría el título es el nombre del lugar.
+# Además tienen que venir de la misma carga: Genda pone en la URL cuándo se
+# cargó cada evento (…-20261119133107), y los 11 templos entraron en 20
+# minutos, mientras que La Vela Puerca en el Hipódromo, a la misma hora, se
+# cargó en agosto y no tiene nada que ver. Fuentes sin esa marca: se mira el
+# grupo entero.
+
+MIN_SEDES_RECORRIDO = 5
+_VACIAS_RECORRIDO = _PALABRAS_TITULO_VACIAS | {'del', 'al', 'a'}
+
+
+def _titulo_es_lugar(titulo: str, lugar: str) -> bool:
+    def palabras(t):
+        return {p for p in re.findall(r'[a-z0-9]+', _sin_acentos(t.lower()))
+                if p not in _VACIAS_RECORRIDO}
+    pt, pl = palabras(titulo), palabras(lugar)
+    if not pt or not pl:
+        return False
+    return pt <= pl or pl <= pt
+
+
+_MARCA_CARGA = re.compile(r'(20\d{12})/?$')
+MINUTOS_MISMA_CARGA = 30
+
+
+def _marca_carga(ev: dict):
+    m = _MARCA_CARGA.search(ev.get('url') or '')
+    if not m:
+        return None
+    try:
+        return datetime.strptime(m.group(1), '%Y%m%d%H%M%S')
+    except ValueError:
+        return None
+
+
+def _por_carga(grupo: list) -> list:
+    """Parte el grupo en tandas cargadas juntas (huecos de hasta 30 min)."""
+    sin_marca = [e for e in grupo if _marca_carga(e) is None]
+    con_marca = sorted((e for e in grupo if _marca_carga(e) is not None), key=_marca_carga)
+    tandas, actual = [], []
+    for e in con_marca:
+        if actual and (_marca_carga(e) - _marca_carga(actual[-1])).total_seconds() > MINUTOS_MISMA_CARGA * 60:
+            tandas.append(actual)
+            actual = []
+        actual.append(e)
+    if actual:
+        tandas.append(actual)
+    if sin_marca:
+        tandas.append(sin_marca)
+    return tandas
+
+
+def _lista_sedes(sedes: list) -> str:
+    if len(sedes) == 1:
+        return sedes[0]
+    return ', '.join(sedes[:-1]) + ' y ' + sedes[-1]
+
+
+def agrupar_recorridos(eventos: list, nombrar=None) -> list:
+    """Junta en una sola tarjeta los recorridos cargados sede por sede.
+
+    nombrar(grupo) -> str puede devolver el nombre del recorrido (por
+    ejemplo, leído de la página de la fuente). Si no lo da, queda
+    "Recorrido por N sedes". Las sedes van en la sinopsis y en 'sedes'.
+    """
+    grupos = {}
+    for ev in eventos:
+        grupos.setdefault((ev.get('fuente', ''), ev.get('fecha', '')), []).append(ev)
+
+    reemplazo = {}   # id del primer evento del grupo -> evento agrupado
+    absorbidos = set()
+    tandas = [(fecha, t) for (_f, fecha), g in grupos.items()
+              if len(g) >= MIN_SEDES_RECORRIDO for t in _por_carga(g)]
+    for _fecha, grupo in tandas:
+        if len(grupo) < MIN_SEDES_RECORRIDO:
+            continue
+        lugares = {_clave_lugar(e.get('lugar', '')) for e in grupo}
+        if len(lugares) < len(grupo) * 0.8:
+            continue
+        coinciden = sum(_titulo_es_lugar(e.get('titulo', ''), e.get('lugar', ''))
+                        for e in grupo)
+        if coinciden < len(grupo) * 0.6:
+            continue
+
+        sedes = []
+        for e in grupo:
+            nombre = (e.get('lugar') or e.get('titulo') or '').strip()
+            if nombre and nombre not in sedes:
+                sedes.append(nombre)
+        nombre = ''
+        if nombrar:
+            try:
+                nombre = (nombrar(grupo) or '').strip()
+            except Exception as err:  # noqa: BLE001 — el nombre es opcional
+                print(f'  recorrido: no se pudo leer el nombre ({err})')
+        titulo = nombre or f'Recorrido por {len(sedes)} sedes'
+
+        base = dict(grupo[0])
+        base.update({
+            'titulo': titulo,
+            'lugar': 'Varias sedes',
+            'direccion': '',
+            'categoria': Counter(e.get('categoria', 'otros') for e in grupo).most_common(1)[0][0],
+            'imagen': next((e['imagen'] for e in grupo if e.get('imagen')), ''),
+            'url': next((e['url'] for e in grupo if e.get('url')), ''),
+            'sedes': sedes,
+            'sinopsis': f'Recorrido por {len(sedes)} sedes: {_lista_sedes(sedes)}.',
+        })
+        for k in ('latitud', 'longitud', 'lat', 'lng', 'geo'):
+            base.pop(k, None)
+        reemplazo[id(grupo[0])] = base
+        absorbidos.update(id(e) for e in grupo[1:])
+        print(f'  recorrido: "{titulo}" junta {len(grupo)} eventos ({_fecha})')
+
+    return [reemplazo.get(id(ev), ev) for ev in eventos if id(ev) not in absorbidos]

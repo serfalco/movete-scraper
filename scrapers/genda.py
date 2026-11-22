@@ -305,6 +305,30 @@ def _scrape_sitemap() -> list:
     print(f'  genda: plan B recupero {len(eventos)} eventos')
     return eventos
 
+# Nombre de un recorrido cargado sede por sede (ver
+# core.normalizar.agrupar_recorridos). Genda no lo pone en el título sino en
+# un hashtag de la descripción: "disfrutar de la #NocheDeLosTemplos".
+_HASHTAG = re.compile(r'#([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:[A-ZÁÉÍÓÚÑ][a-záéíóúñ]*)+)')
+_CONECTORES = {'De', 'Del', 'La', 'Las', 'Los', 'El', 'Y', 'En', 'A', 'Al'}
+
+
+def nombre_de_recorrido(grupo: list) -> str:
+    """Lee el hashtag de la primera página del grupo: "Noche de los Templos"."""
+    url = next((e.get('url') for e in grupo if e.get('url')), '')
+    if not url:
+        return ''
+    pagina = _pedir(url, etiqueta='recorrido')
+    if not pagina:
+        return ''
+    texto = BeautifulSoup(pagina, 'html.parser').get_text(' ')
+    m = _HASHTAG.search(texto)
+    if not m:
+        return ''
+    partes = re.findall(r'[A-ZÁÉÍÓÚÑ][a-záéíóúñ]*', m.group(1))
+    return ' '.join(p.lower() if i and p in _CONECTORES else p
+                    for i, p in enumerate(partes))
+
+
 def scrape() -> list:
     eventos = []
     hoy = date.today()
