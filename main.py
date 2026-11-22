@@ -17,7 +17,7 @@ import sys
 from collections import Counter
 from datetime import date, datetime
 
-from core.normalizar import deduplicar, es_futuro, en_sala_cerrada
+from core.normalizar import agrupar_recorridos, deduplicar, es_futuro, en_sala_cerrada
 
 from scrapers import (
     livepass,
@@ -262,6 +262,13 @@ def main() -> int:
         eventos.append(evento)
 
     eventos = deduplicar(eventos)
+
+    def _nombrar_recorrido(grupo):
+        if grupo[0].get("fuente") == "genda":
+            return genda.nombre_de_recorrido(grupo)
+        return ""
+
+    eventos = agrupar_recorridos(eventos, nombrar=_nombrar_recorrido)
     eventos.sort(key=lambda e: e.get("fecha", ""))
 
     print(f"Futuros y únicos: {len(eventos)}")
